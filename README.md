@@ -1,168 +1,202 @@
-# AQI Dashboard
+# AQI Dashboard — Windows Desktop App
 
-> A multi-source air quality monitoring desktop app for Windows. Auto-launches on boot, surfaces a consensus AQI from independent sensor networks, and lets you query any locality on demand.
+> In a country like India, checking air quality is not optional — it is a survival mechanism. Degrading AQI over years has created documented links to respiratory disease, cardiovascular stress, and reduced cognitive function. This app puts that information in front of you automatically, every single day, before you leave home.
+
+![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square)
+![PySide6](https://img.shields.io/badge/UI-PySide6%20%28Qt6%29-green?style=flat-square)
+![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-lightgrey?style=flat-square)
+![Sources](https://img.shields.io/badge/Data%20Sources-4%20Independent-purple?style=flat-square)
 
 ---
 
-## The problem this solves
+## The problem
 
-Delhi air quality is unpredictable, hyperlocal, and consequential. The official CPCB website is slow and shows one station at a time. Phone apps work but require unlocking, opening, navigating. None of them tell you whether the reading you're seeing is corroborated by other sensors or is an outlier from a single malfunctioning monitor.
+Most people in Indian cities check AQI the same way they check weather — reactively, when they remember, when it's already too late to plan differently. The CPCB website is slow. Phone apps require unlocking, navigating, waiting. And none of them tell you whether the reading you're seeing is accurate or an outlier from a single malfunctioning sensor.
 
-This app addresses three specific gaps:
+This app addresses that directly:
 
-1. **Zero-friction surfacing** — air quality is the first thing you see when your computer boots, not something you have to remember to check.
-2. **Cross-source validation** — instead of trusting a single API, three independent sources are queried in parallel and a median consensus is shown. Sensor disagreements are flagged.
-3. **Locality awareness** — alongside your current location, you can search any neighbourhood by name and immediately see the nearest station's AQI.
+- **Zero friction** — opens automatically when your PC boots, no action required
+- **Multi-source consensus** — queries four independent sensor networks and shows the median, not just one reading
+- **Neighbourhood-level awareness** — not just your city, but your locality, nearby stations, and which areas to avoid that day
 
-The target user is someone living in a high-pollution area who treats AQI as actionable data — deciding whether to run outdoors, whether to mask up, whether to keep windows open — and wants that decision input present passively rather than actively pursued.
+One glance when you sit down at your desk. That's it.
+
+---
+
+## ⚠️ Transparency Disclaimer
+
+**This app was built using AI (Claude by Anthropic) as the primary implementation tool.**
+
+I did not write the Python from scratch. What I did:
+
+- Defined the product requirements and feature scope from a real personal need
+- Made every architectural decision — multi-source consensus design, geocoding approach, fallback chain, PWA vs APK trade-offs for mobile
+- Directed every iteration: tested each build, identified what broke, specified what needed to change
+- Owned all UI/UX decisions — layout, color system, information hierarchy, what to surface and how
+- Debugged all deployment issues across Render, Railway, and Windows registry
+- Set the quality bar and rejected outputs that didn't meet it
+
+The judgment calls, the "this needs to work differently", and the debugging loop were mine. The Python syntax was not.
+
+If you're a recruiter: this project demonstrates product thinking, system design intuition, and the ability to ship real tools end-to-end. It does not demonstrate raw Python implementation skills, which you can evaluate through other work.
 
 ---
 
 ## What it does
 
-On every Windows login:
+The dashboard opens automatically on every Windows boot and shows:
 
-- A dashboard window appears (no console, no terminal)
-- Three reference cards show your locality AQI, city overview, and consensus across all sources
-- A nearby-stations table lists every monitor within a configurable radius (default 10 km)
-- A hotspots table ranks the worst-AQI stations within a wider radius (default 30 km)
-- A search bar accepts any place name — types it through a geocoder, then resolves to the nearest sensor
-- A status bar reports which sources responded, when the data was last fetched, and warnings if any
-- If every live source fails, a cached reading is shown with a stale-data warning
+### 🏠 Your Locality
+The AQI reading from the nearest physical monitoring station to your configured coordinates — with the dominant pollutant, station name, and a plain-language health advisory.
 
-All of this is read-only and runs in the background; it consumes ~50 MB of RAM and 0% CPU at idle.
+### 🏙️ City Overview
+The city-level representative reading, which WAQI computes from a central station. Useful for understanding the broader trend vs your immediate neighbourhood.
 
----
+### 📊 Consensus AQI
+The median across all sources that responded. This is the number to trust. If three sources read 160–170 and one reads 290, the median filters out the outlier. A "wide spread" warning fires automatically when sources disagree by more than 50 AQI points.
 
-## How it works (high-level)
+### 📡 Nearby Stations — within 10 km
+Every monitoring station within your configured radius, sorted by distance. Tells you which direction the air is better or worse, useful if you're deciding a walking or cycling route.
 
-### The data sources
+### 🔥 Hotspots — worst 5 within 30 km
+The five highest-AQI stations in the wider area around you. If Anand Vihar is at 280 and your locality is at 140, you know not to drive through it. Gives you a spatial sense of where the pollution is concentrated that day.
 
-| Source | What it provides | Why it's included |
-|---|---|---|
-| **WAQI** (aqicn.org) | Aggregates CPCB + US embassy + private monitors, normalized to US AQI | Best Indian station coverage; the primary data backbone |
-| **OpenAQ** | Open-source ingestion of CPCB raw data | Cross-pipeline check on WAQI's CPCB-derived numbers |
-| **OpenWeatherMap** | Model + satellite-derived PM2.5, converted to US AQI via EPA breakpoints | Genuinely independent methodology — not based on the same physical sensors |
-| **IQAir** (optional) | Independent commercial sensor network | Adds a fourth perspective if enabled |
-
-The architecture deliberately treats no single source as canonical. WAQI is queried first because of its station-level depth, but the consensus AQI shown to the user is the **median** of every source that responded — not WAQI's number with the others as backup.
-
-### The fallback chain
-
-```
-                       LOCALITY AQI
-                            │
-        ┌───────────┬───────┴───────┬────────────┐
-        │           │               │            │
-      WAQI        IQAir          OpenAQ        OWM
-   (priority 1) (priority 2)  (priority 3)  (priority 4)
-        │           │               │            │
-        └───────────┴───────┬───────┴────────────┘
-                            ▼
-                    Median = Consensus AQI
-
-                  ALL FOUR FAILED?
-                            │
-                            ▼
-                  Load cached reading
-                  Display "stale" warning
-```
-
-The app shows the highest-priority source's reading as the "locality" number (because WAQI gives station-level granularity that OWM doesn't), but the consensus card aggregates everything. If three sources read 165–170 and one reads 240, you see "spread — sensors disagree" as a warning, prompting you not to trust the apparent precision of any single number.
-
-### The search flow
-
-When you type a locality:
-
-```
-  "West Patel Nagar Delhi"
-            │
-            ▼  (Nominatim geocoder — OpenStreetMap)
-   28.6483, 77.1686
-            │
-            ▼  (WAQI /feed/geo/ endpoint)
-   Nearest station: Punjabi Bagh, AQI 171
-```
-
-This is fundamentally different from keyword-searching WAQI's station database, which fails for residential neighbourhoods that don't have their own monitors. By geocoding the user's text first, then asking WAQI which physical station is closest to those coordinates, the search works for any place name OpenStreetMap recognizes — which is essentially every populated locality globally.
-
-### Auto-start mechanism
-
-A registry key under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` points to `pythonw.exe dashboard.py`. Windows runs this on every login. `pythonw` is the silent variant of Python — no console window flashes during startup. No services, no scheduled tasks, no admin rights needed.
+### 🔍 Locality Search
+Type any neighbourhood, colony, or city by name. The app geocodes it via OpenStreetMap, finds the nearest physical sensor to those coordinates, and returns the AQI. Works for any populated locality globally — not just cities that have named WAQI entries.
 
 ---
 
-## Setup
+## Using it for your city — not just Delhi
 
-### Prerequisites
+The app works for **any city in the world** that has air quality monitoring stations. To set your location:
 
-- Windows 10/11
-- Python 3.10+ (avoid Microsoft Store version — path quirks break the autostart registry trick)
-
-### Install
-
-```powershell
-cd path\to\aqi-dashboard
-pip install -r requirements.txt
-copy config.example.json config.json
-```
-
-### Configure
-
-Edit `config.json`:
+1. Find your coordinates on [Google Maps](https://maps.google.com) — right-click your location → the first line shows `lat, lng`
+2. Open `config.json` and update:
 
 ```json
 {
-  "waqi_token": "GET_THIS_FROM_AQICN",
-  "openweather_key": "OPTIONAL",
-  "iqair_key": "",
-  "openaq_key": "OPTIONAL",
   "location": {
     "auto": false,
-    "city": "Delhi",
-    "lat": 28.6139,
-    "lng": 77.2090
+    "city": "Mumbai",
+    "lat": 19.0760,
+    "lng": 72.8777
   },
   "radius_km": 10,
   "hotspot_radius_km": 30
 }
 ```
 
-API keys (all free):
-- WAQI: https://aqicn.org/data-platform/token/ (required)
-- OpenWeatherMap: https://openweathermap.org/api (recommended — adds independent methodology)
-- OpenAQ: https://explore.openaq.org (optional — same data as WAQI ultimately)
-- IQAir: skip unless explicitly wanted (their email verification flow has been flagged as suspicious)
+- `city` — used for the city-level feed query
+- `lat` / `lng` — your precise location for nearby stations and locality AQI
+- `radius_km` — how wide the nearby stations table searches (default 10 km)
+- `hotspot_radius_km` — how wide the hotspot search goes (default 30 km)
 
-Set `auto: false` and hardcode `lat`/`lng` to avoid IP-based geolocation misfires (ISPs route traffic through other cities — Delhi users frequently get pegged as Noida).
-
-### Run
-
-```powershell
-python dashboard.py
-```
-
-### Install as startup item
-
-```powershell
-python setup_autostart.py
-```
-
-To remove later: `python uninstall_autostart.py`
+Set `auto: false` always. IP-based geolocation in India is unreliable — ISPs route traffic through different cities and the app will think you're in the wrong place.
 
 ---
 
-## Tech stack
+## Data sources & API setup
 
-| Layer | Choice | Why |
-|---|---|---|
-| Language | Python 3.10+ | Fast iteration, rich ecosystem, good API libraries |
-| GUI | PySide6 (Qt 6) | Native look, excellent threading model, no Electron bloat |
-| HTTP | `requests` | Synchronous; threading is handled at the QThread layer |
-| Persistence | JSON file | Single cached snapshot, no database overhead |
-| Auto-start | Registry (HKCU Run key) | No services, no admin rights, no scheduled tasks |
+The app queries four independent sources. Each has a free tier more than sufficient for personal use.
 
-No frontend framework, no database, no background daemon, no native dependencies beyond Python. Total install footprint is around 80 MB (mostly PySide6's Qt bundle).
+### 1. WAQI — World Air Quality Index *(required)*
+Aggregates CPCB, US Embassy monitors, IIT sensors, and private networks across India. The primary backbone — best station-level granularity for Indian cities.
+
+**Get your free token:**
+1. Go to [aqicn.org/data-platform/token](https://aqicn.org/data-platform/token/)
+2. Enter your email → token arrives in minutes
+3. Add to `config.json` as `"waqi_token"`
+
+### 2. OpenWeatherMap *(recommended)*
+Satellite and model-derived PM2.5, converted to US AQI. Genuinely independent methodology — not based on the same physical CPCB sensors as WAQI and OpenAQ. Provides the most valuable cross-check.
+
+**Get your free key:**
+1. Sign up at [openweathermap.org](https://openweathermap.org/api)
+2. Go to API keys in your account
+3. Add to `config.json` as `"openweather_key"`
+4. Note: keys activate within 2 hours of generation
+
+### 3. OpenAQ *(optional)*
+Open-source aggregation of government monitoring data, including CPCB. A separate pipeline from WAQI pulling from the same underlying sensors — useful as a tie-breaker.
+
+**Get your free key:**
+1. Sign up at [explore.openaq.org](https://explore.openaq.org)
+2. Go to API Keys in your profile
+3. Add to `config.json` as `"openaq_key"`
+
+### 4. IQAir *(optional — see note)*
+Independent commercial sensor network with its own monitors, separate from CPCB. Free tier allows 100 requests/day.
+
+> ⚠️ Note: IQAir's verification email has been flagged as suspicious by some antivirus software (Bitdefender, tested personally). Proceed at your own discretion. The app works fine without it.
+
+**If you want it:** [iqair.com/dashboard](https://www.iqair.com/us/commercial-air-quality-monitors/api) → Add to `config.json` as `"iqair_key"`
+
+---
+
+## Setup
+
+### Prerequisites
+- Windows 10 or 11
+- Python 3.10+ from [python.org](https://python.org) — **not** the Microsoft Store version (path quirks break the autostart registry hook)
+
+### Install dependencies
+
+```cmd
+pip install -r requirements.txt
+```
+
+### Configure
+
+```cmd
+copy config.example.json config.json
+notepad config.json
+```
+
+Fill in your API keys and coordinates. Minimum working config requires only `waqi_token`.
+
+### Run
+
+```cmd
+python dashboard.py
+```
+
+### Install as Windows startup item
+
+```cmd
+python setup_autostart.py
+```
+
+This writes a single registry entry under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` pointing to `pythonw.exe dashboard.py`. No admin rights, no services, no Task Scheduler. The window opens silently on every login. Remove it anytime:
+
+```cmd
+python uninstall_autostart.py
+```
+
+---
+
+## Technical implementation
+
+### Language & runtime
+- **Python 3.10+** — core language
+
+### GUI framework
+- **PySide6 (Qt 6)** — native Windows-style window, proper threading model via `QThread`, signal/slot architecture for async data fetching without freezing the UI
+
+### Data & networking
+- **`requests`** — HTTP client for all four API sources
+- **Nominatim (OpenStreetMap)** — geocoding for the locality search (free, no key)
+- **Photon (komoot)** — geocoding fallback
+
+### Core algorithms
+- **Haversine formula** — great-circle distance between coordinates, used for sorting nearby stations and filtering hotspots
+- **EPA 2024 NAAQS breakpoints** — piecewise-linear PM2.5 to US AQI conversion (updated standard, not the commonly-used pre-2024 table)
+- **Median consensus** — robust to outliers vs mean; one bad sensor doesn't skew the displayed number
+
+### Persistence
+- **JSON file cache** — stores last successful reading; loaded when all live sources fail (e.g. network not ready at boot)
+
+### Auto-start
+- **Windows Registry** `HKCU\...\Run` — per-user, no elevation required, `pythonw.exe` suppresses the console window
 
 ---
 
@@ -171,41 +205,36 @@ No frontend framework, no database, no background daemon, no native dependencies
 ```
 aqi-dashboard/
 ├── dashboard.py            # PySide6 UI + main entry point
-├── aggregator.py           # Multi-source orchestration, consensus logic
+├── aggregator.py           # Multi-source orchestration, consensus, fallback chain
 ├── waqi.py                 # WAQI API client
-├── openaq.py               # OpenAQ API client
-├── openweather.py          # OpenWeatherMap client + PM2.5→AQI conversion
+├── openaq.py               # OpenAQ v3 API client
+├── openweather.py          # OWM client + PM2.5 → US AQI conversion
 ├── iqair.py                # IQAir client (optional)
-├── geolocation.py          # IP-based geolocation
-├── geocoder.py             # Place name → lat/lng (Nominatim/Photon)
-├── cache.py                # JSON-backed last-known-reading cache
-├── setup_autostart.py      # Adds Windows registry entry
-├── uninstall_autostart.py  # Removes Windows registry entry
-├── config.example.json     # Config template
-├── config.json             # User config (gitignored, created from example)
-├── aqi_cache.json          # Auto-generated runtime cache (gitignored)
-├── requirements.txt        # PySide6, requests
-├── README.md               # This file
-└── DOCUMENTATION.md        # Code-level architecture deep-dive
+├── geocoder.py             # Locality name → lat/lng (Nominatim + Photon)
+├── geolocation.py          # IP-based location detection
+├── cache.py                # JSON-backed last-known-good snapshot
+├── setup_autostart.py      # Writes Windows registry startup entry
+├── uninstall_autostart.py  # Removes it
+├── config.example.json     # Template — copy to config.json and add your keys
+└── requirements.txt        # PySide6, requests
 ```
-
-For implementation details — module breakdowns, function-level explanations, threading model, data flow — see `DOCUMENTATION.md`.
 
 ---
 
 ## Limitations
 
-- **CPCB native AQI is not used.** WAQI normalizes to US EPA AQI; CPCB uses Indian breakpoints which differ in the 100–200 band. Numbers shown are EPA-equivalent, not CPCB-equivalent.
-- **Hotspots are real-time, not chronic.** A station can spike from a momentary fire/firework/traffic event. For chronic hotspot tracking, historical data logging would need to be added.
-- **No alerts.** The app surfaces info on boot but doesn't wake up to notify you if AQI crosses a threshold mid-day.
-- **No mobile parity.** Windows-only by design; the autostart hook is registry-based.
+- **US AQI scale, not Indian** — WAQI normalises all readings to the US EPA scale. CPCB publishes on Indian breakpoints which diverge in the 100–200 band. If you need CPCB-native numbers, the source would need to be replaced with direct CPCB scraping.
+- **Real-time hotspots** — a spike from fireworks or a fire appears as a hotspot for that session. Chronic hotspot identification would require historical data logging, which this version does not do.
+- **No threshold alerts** — the app surfaces information at boot only. It does not monitor continuously or notify you if AQI spikes mid-day.
+- **Windows only** — the auto-start mechanism is registry-based. A companion mobile PWA version (FastAPI + Railway) is maintained separately.
 
 ---
 
-## Possible extensions
+## Screenshots
 
-- Historical AQI tracking (SQLite + 7/30-day rolling aggregates)
-- Threshold-based desktop notifications (`winotify` toast on AQI > N)
-- Map view with station overlay (Folium HTML embedded via `QWebEngineView`)
-- Direct CPCB scraping for native Indian AQI numbers
-- PyInstaller bundle for distribution as a single `.exe` with no Python prerequisite
+*Coming soon.*
+
+---
+
+*Built out of a genuine need to make AQI awareness effortless in a city where it directly affects daily decisions.*  
+*AI-assisted development — see disclaimer above.*

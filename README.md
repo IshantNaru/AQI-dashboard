@@ -23,6 +23,14 @@ One glance when you sit down at your desk. That's it.
 
 ---
 
+---
+
+## Screenshots
+
+![AQI Dashboard](screenshots/dashboard.png)
+
+---
+
 ## ⚠️ Transparency Disclaimer
 
 **This app was built using AI (Claude by Anthropic) as the primary implementation tool.**
@@ -228,13 +236,7 @@ aqi-dashboard/
 - **No threshold alerts** — the app surfaces information at boot only. It does not monitor continuously or notify you if AQI spikes mid-day.
 - **Windows only** — the auto-start mechanism is registry-based. A companion mobile PWA version (FastAPI + Railway) is maintained separately.
 
----
 
-## Screenshots
-
-*Coming soon.*
-
----
 
 *Built out of a genuine need to make AQI awareness effortless in a city where it directly affects daily decisions.*  
 *AI-assisted development — see disclaimer above.*

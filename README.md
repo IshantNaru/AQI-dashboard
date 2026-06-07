@@ -23,8 +23,6 @@ One glance when you sit down at your desk. That's it.
 
 ---
 
----
-
 ## Screenshots
 
 ![AQI Dashboard](screenshots/dashboard.png)

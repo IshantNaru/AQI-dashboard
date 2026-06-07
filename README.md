@@ -1,6 +1,6 @@
 # AQI Dashboard — Windows Desktop App
 
-> In a country like India, checking air quality is not optional — it is a survival mechanism. Degrading AQI over years has created documented links to respiratory disease, cardiovascular stress, and reduced cognitive function. This app puts that information in front of you automatically, every single day, before you leave home.
+> In a country like India, checking air quality is not optional — it is a survival mechanism. Degrading AQI over years has created documented links to respiratory disease, cardiovascular stress, and reduced cognitive function. This app puts that information in front of you automatically, every single day, before you leave home or start your work.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square)
 ![PySide6](https://img.shields.io/badge/UI-PySide6%20%28Qt6%29-green?style=flat-square)

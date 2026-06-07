@@ -1,0 +1,14 @@
+{
+  "waqi_token": "YOUR_WAQI_TOKEN_HERE",
+  "openweather_key": "",
+  "iqair_key": "",
+  "openaq_key": "",
+  "location": {
+    "auto": false,
+    "city": "Delhi",
+    "lat": 28.6139,
+    "lng": 77.2090
+  },
+  "radius_km": 10,
+  "hotspot_radius_km": 30
+}

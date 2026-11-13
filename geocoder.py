@@ -1,7 +1,7 @@
 """
 Locality geocoder.
 
-Converts a free-text location query (e.g. "West Patel Nagar Delhi") into
+Converts a free-text location query (e.g. "Karol Bagh Delhi") into
 lat/lng coordinates, which are then passed to WAQI's geo endpoint to find
 the nearest air quality station.
 

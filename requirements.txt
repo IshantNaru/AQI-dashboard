@@ -1,2 +1,4 @@
 PySide6>=6.5.0
 requests>=2.31.0
+# Optional, only for a smart air purifier (Xiaomi MiOT) — setup_venv.bat installs these for you:
+#   netifaces-plus, python-miio==0.5.12 (installed with --no-deps; see setup_venv.bat)

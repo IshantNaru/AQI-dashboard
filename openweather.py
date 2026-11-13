@@ -5,25 +5,7 @@ Returns US AQI computed from PM2.5 using EPA 2024 NAAQS breakpoints.
 """
 import requests
 
-PM25_BREAKPOINTS = [
-    (0.0,   9.0,   0,   50),
-    (9.1,   35.4,  51,  100),
-    (35.5,  55.4,  101, 150),
-    (55.5,  125.4, 151, 200),
-    (125.5, 225.4, 201, 300),
-    (225.5, 325.4, 301, 500),
-]
-
-
-def pm25_to_us_aqi(pm25: float) -> int:
-    if pm25 is None:
-        return None
-    if pm25 < 0:
-        return 0
-    for c_lo, c_hi, i_lo, i_hi in PM25_BREAKPOINTS:
-        if c_lo <= pm25 <= c_hi:
-            return round(((i_hi - i_lo) / (c_hi - c_lo)) * (pm25 - c_lo) + i_lo)
-    return 500
+from aqi_math import pm25_to_aqi as pm25_to_us_aqi  # fixed: old table had gaps (9.05 -> 500)
 
 
 class OpenWeatherClient:

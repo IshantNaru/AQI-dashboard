@@ -1,6 +1,6 @@
 """OpenAQ v3 API client."""
 import requests
-from openweather import pm25_to_us_aqi
+from aqi_math import pm25_to_aqi as pm25_to_us_aqi
 
 BASE = "https://api.openaq.org/v3"
 
@@ -78,3 +78,35 @@ class OpenAQClient:
             if utc:
                 return str(utc)
         return None
+
+    # ── History (used by the background recorder) ───────────────────────────
+
+    def locations_near_raw(self, lat, lng, radius_m=10000, limit=100):
+        """Raw /v3/locations results around a point (radius capped at 25 km by the API)."""
+        r = self.session.get(
+            f"{BASE}/locations",
+            params={"coordinates": f"{lat},{lng}", "radius": int(min(radius_m, 25000)), "limit": limit},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return r.json().get("results") or []
+
+    def sensor_hours(self, sensor_id, datetime_from, datetime_to, max_pages=5):
+        """
+        Hourly averages for one sensor: GET /v3/sensors/{id}/hours.
+        datetime_from/to are ISO-8601 UTC strings ("2026-10-01T00:00:00Z").
+        """
+        out = []
+        for page in range(1, max_pages + 1):
+            r = self.session.get(
+                f"{BASE}/sensors/{sensor_id}/hours",
+                params={"datetime_from": datetime_from, "datetime_to": datetime_to,
+                        "limit": 1000, "page": page},
+                timeout=20,
+            )
+            r.raise_for_status()
+            res = r.json().get("results") or []
+            out.extend(res)
+            if len(res) < 1000:
+                break
+        return out

@@ -1,208 +1,362 @@
-# AQI Dashboard — Windows Desktop App
+# AQI Dashboard v2: an air-quality monitor for Delhi and North India
 
-> In a country like India, checking air quality is not optional — it is a survival mechanism. Degrading AQI over years has created documented links to respiratory disease, cardiovascular stress, and reduced cognitive function. This app puts that information in front of you automatically, every single day, before you leave home or start your work.
+> A Windows desktop app that records your neighbourhood's PM2.5 hour by hour, shows **what the air
+> is doing now and how it got here**, explains **why** it got worse, sends updates to your phone, and
+> shows how every number was worked out, so you don't have to take it on trust.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square)
 ![PySide6](https://img.shields.io/badge/UI-PySide6%20%28Qt6%29-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-lightgrey?style=flat-square)
-![Sources](https://img.shields.io/badge/Data%20Sources-4%20Independent-purple?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0-orange?style=flat-square)
+![Sources](https://img.shields.io/badge/sources-govt%20monitors%20%C2%B7%20WAQI%20%C2%B7%20satellite%20model-purple?style=flat-square)
+
+![Dashboard](screenshots/v2/dashboard.png)
 
 ---
 
-## The problem
+## Why this exists
 
-Most people in Indian cities check AQI the same way they check weather — reactively, when they remember, when it's already too late to plan differently. The CPCB website is slow. Phone apps require unlocking, navigating, waiting. And none of them tell you whether the reading you're seeing is accurate or an outlier from a single malfunctioning sensor.
+For about four months every year, Delhi's air is among the worst measured anywhere. Crop-residue
+smoke from Punjab and Haryana, winter temperature inversions that trap pollution near the
+ground, traffic, construction dust and festival fireworks all add up, and they arrive on top of
+an annual average that is already very high.
 
-This app addresses that directly:
+- Delhi's 2023 annual PM2.5 was **88.4 µg/m³**, about **18 times** the WHO guideline of 5 µg/m³. At
+  that level the University of Chicago's Air Quality Life Index estimates residents lose about
+  **8.2 years** of life expectancy. ([AQLI 2025](https://aqli.epic.uchicago.edu/post/delhi-residents-losing-8-2-years-of-their-lives-to-high-air-pollution-report-en))
+- On Diwali night 2026, Delhi Pollution Control Committee data showed single stations above
+  **3,000 µg/m³** of PM2.5. ([The Wire](https://m.thewire.in/article/environment/delhis-missing-diwali-night-pollution-data-released-pm2-5-crosses-3700-politicians-cling-to-superstition))
+- In the neighbourhood this app was built for, the **mean PM2.5 on 9 Nov 2026 was 300 µg/m³**
+  (22 of 24 hours published; the government monitors didn't publish the other 2) and the worst hour
+  reached 933 µg/m³.
 
-- **Zero friction** — opens automatically when your PC boots, no action required
-- **Multi-source consensus** — queries four independent sensor networks and shows the median, not just one reading
-- **Neighbourhood-level awareness** — not just your city, but your locality, nearby stations, and which areas to avoid that day
+Checking an app once a day can't keep up with that. What does help is knowing **when** the air is
+worst (often mid-morning and late evening, not only at night), **how today compares** with
+yesterday and last year, and **whether a spike is city-wide or just your area**. That is what this app
+records and shows.
 
-One glance when you sit down at your desk. That's it.
+### What PM2.5 does to the body
+
+PM2.5 means particles under 2.5 micrometres, about 30 times thinner than a hair. They get deep
+into the lungs and the smaller ones pass into the blood. Long-term exposure is linked to heart
+disease, stroke, lung cancer, chronic lung disease (COPD), asthma attacks and lower-respiratory
+infections. Short spikes worsen existing heart and lung conditions within hours. WHO's 2021
+guidelines are **15 µg/m³ for a 24-hour average** and **5 µg/m³ for an annual average**, and WHO
+estimates that meeting them would prevent most of the millions of deaths a year it attributes to
+PM2.5. ([WHO guidelines via IQAir](https://www.iqair.com/newsroom/2021-WHO-air-quality-guidelines))
+
+*This app gives information, not medical advice.*
+
+---
+
+## What this app is, and what it isn't
+
+**It is a monitoring tool, not a certified instrument.** There's no sensor at your house. The app
+combines public data from government monitors near you, a second live feed, and an independent
+satellite-based model, and it is **open about how each number is made**:
+
+- every number says **where it came from and when** (e.g. *"live 23:00"*, *"measured 21:00–22:00"*);
+- one click shows **each monitor's raw reading and the exact formula** with the numbers plugged in;
+- it **flags when sources disagree** or monitors go silent, so you know when to be careful.
+
+It won't give you a lab-grade reading of your bedroom window. It will tell you reliably whether
+today is worse than yesterday, whether the air is getting worse right now, and how bad it is
+around you.
+
+---
+
+## v1 → v2
+
+[v1](https://github.com/IshantNaru/AQI-dashboard/tree/v1.0) was a one-screen snapshot: the nearest
+station's AQI plus a median across four websites. v2 is a recorder and analyst.
+
+| | v1 | v2 |
+|---|---|---|
+| "Your area" | nearest single station | **median of all government monitors within 5 km**, with average and distance-weighted shown alongside, chosen by measured accuracy (below) |
+| Units | AQI only | **PM2.5 in µg/m³ and AQI**, with every AQI computed from a concentration |
+| AQI scale | mixed (sources used different US tables) | **one scale (US EPA 2024)**: WAQI's older-table numbers are converted back to µg/m³ and re-scored |
+| Time | "now" | **live (with time) and measured (with the hour)** shown separately, plus full history |
+| History | none | background recorder → monthly CSVs; **Day / Month graphs**; a saved image of every day |
+| Gaps | invisible | missing monitor hours **marked on the graph and logged** |
+| Independent check | none | **satellite-based model (Copernicus CAMS)**, unaffected by monitors going offline |
+| Why is it bad? | n/a | **cause explainer**: festival calendar, city-wide vs local, wind, mixing height, smoke vs dust, crop-fire season |
+| Alerts | none | spikes in your area or across Delhi → banner, sound, Windows notification, phone |
+| Phone | none | **ntfy push updates every 2 h**, and you can **ask questions** ("why is it so bad?", "AQI in Rohini", "graph") |
+| Indoor (optional) | none | smart purifier logging: indoor vs outdoor, clean-down time, door-opening detection |
+| Trust | "median of 4 sources" | **"How is this calculated?"** on every card: raw values, formula, links, cross-checks |
+| Accuracy testing | none | leave-one-out validation and fault-injection tests on your own recorded data |
+| Past years | none | same-date comparison with earlier years from the government archive and the satellite model |
+
+---
+
+## Features
+
+### 1. Dashboard: live and measured, never mixed
+
+| Card | What it shows |
+|---|---|
+| **Your area** | **Live AQI** (big number, labelled *live HH:MM*), its PM2.5 (≈), and a separate **Measured** line: e.g. *"Measured 21:00–22:00: PM2.5 311 µg/m³ → AQI 471"* from the government monitors |
+| **City overview** | WAQI's city station, converted to the same scale, *live HH:MM* |
+| **Consensus** | median of independent feeds (government data, WAQI, OpenWeather's model, IQAir if configured) |
+
+Below the cards: nearby stations, the worst 5 within 30 km, and a search for any locality ("AQI in
+Karol Bagh").
+
+**Why both live and measured?** Government hourly averages, mirrored by OpenAQ, are the official
+numbers, but they are published **1–2 hours after the hour**. WAQI's live feed is current but
+carries only some monitors. The app shows both, each labelled with its time, instead of blending
+them into a single number that would mislead.
+
+### 2. How the AQI is calculated
+
+1. Start from **PM2.5 in µg/m³** (measured, or converted back from a source that only publishes an index).
+2. Apply the **US EPA 2024 breakpoints** with the standard formula:
+   `AQI = I_lo + (C − C_lo) × (I_hi − I_lo) / (C_hi − C_lo)`.
+   For example, 311 µg/m³ falls in the 225.5–325.4 band (AQI 301–500), giving **AQI 471**.
+3. **WAQI uses the older (pre-2024) US table.** Across 309 paired hourly readings from the same
+   monitors, WAQI's numbers matched the old table to within a median 3 AQI points and the 2024 table
+   only to within 26. So each WAQI number is converted back to µg/m³ using the old table, then
+   re-scored on 2024. WAQI's original value is kept and shown for reference.
+4. Above 500 the official scale ends. The app extends the top segment and says so wherever such
+   values appear.
+
+### 3. "Your area" = median of nearby monitors, and why median
+
+Each hour, the app takes every government monitor within your radius (5 km by default, widened to
+8 km if fewer than 2 report) and combines them three ways: **median**, **average**, and
+**distance-weighted** (1/d²). You can switch between them in History.
+
+It's tested, not assumed. **Leave-one-out cross-validation** hides one monitor at a time, predicts
+it from the others, and measures the error: thousands of predictions on the app's own recordings
+(826 hours, 4 Oct – 13 Nov 2026, 5 monitors):
+
+| Method | Typical error (MAE) | If one monitor reads **half** (sprinklers nearby) | If one reads **double** (fire nearby) |
+|---|---|---|---|
+| **Median** | **37.2 µg/m³** | area value moves **7.3%** on average | **9.5%** |
+| Average | 38.1 µg/m³ | 10.2% | 20.5% |
+| Distance-weighted | 41.6 µg/m³ | 10.2% | 20.5% |
+
+The median is the most accurate here **and** the hardest for one faulty or tampered monitor to pull
+off course. The app re-runs these tests daily (`data/evaluation_report.txt`), and `method_test.py`
+explains the method in full (see `METHOD_TEST.md`).
+
+### 4. History graphs
+
+![Day view: Diwali 2026](screenshots/v2/v2-history-day-diwali.png)
+*Diwali day, 9 Nov 2026. Hatched band = hours the government monitors didn't publish. The ▲ at the
+top edge is an outlier drawn on the axis boundary with its real value (1710).*
+
+- **Day view:** hourly AQI and PM2.5 for your area and for **Delhi's worst monitor of the last 30
+  days** (picked automatically, re-picked monthly). Values are printed on the points (labels move
+  so they don't overlap), and WAQI live readings appear as rings.
+- **Month view:** daily AQI (EPA method: AQI of the 24-hour mean), with full and incomplete days
+  marked.
+- **Sensible axis:** the axis is sized to *your* normal range (98th percentile of the last 90 days,
+  festival nights excluded, plus an allowance). On a festival night, at most 1–3 extreme readings sit
+  on the top edge with their values instead of squashing the whole chart.
+- **Gaps are visible:** hours with no published data are hatched; hours not yet published are dotted.
+- **Daily image:** each completed day is saved as a PNG the next morning, with a notification.
+
+![Month view](screenshots/v2/v2-history-month.png)
+
+### 5. An independent check: satellite-based model
+
+A dashed line on the PM2.5 chart shows **Copernicus CAMS** (via Open-Meteo, free). CAMS is an
+atmospheric model corrected with **NASA MODIS satellite aerosol data**, and its global system doesn't
+use ground monitors. ([CAMS method](https://acp.copernicus.org/preprints/acp-2020-467/acp-2020-467.pdf),
+[Open-Meteo API](https://open-meteo.com/en/docs/air-quality-api))
+
+- It's coarse (~45 km grid) and a model, so **use it for the trend, not the exact level**.
+- The app tracks how many times higher the monitors read than the model. **If the monitors
+  suddenly drop while the model rises, question the monitors.**
+- History goes back to August 2022, so year-to-year comparisons don't depend on which monitors
+  happened to be running.
+
+### 6. Why not take government monitors at face value?
+
+The data behind this app comes from CPCB/DPCC monitors, and most of the time it is the best
+measurement available. But it has documented gaps, usually at the worst moments:
+
+- **Diwali night 2026:** Delhi stations stopped reporting in the early hours. One analysis counted
+  **255 missing station-hours (18%)** over 24 hours. CPCB said readings above 1,000 µg/m³ were
+  *omitted* as outside the analysers' range, not lost.
+  ([The Wire](https://m.thewire.in/article/environment/cpcb-air-pollutant-concentrations-omitted-why-thats-a-problem),
+  [ThePrint](https://theprint.in/feature/theres-a-data-gap-in-delhis-post-diwali-pollution-picture/3093881/))
+  This app's own record shows the same gap: no published data for its area from 01:00 to 03:00 that night.
+- **Monitor siting and coverage:** a CAG audit tabled in April 2025 found monitors placed near trees,
+  major roads and tall buildings, and data short of the required 16 hours a day.
+  ([Tribune](https://www.tribuneindia.com/news/delhi/cag-report-flags-defects-in-monitoring-air-quality-data))
+- **Allegations:** in December 2025 politicians alleged water was sprayed around some stations;
+  CPCB's chairman denied any manipulation.
+  ([Tribune](https://www.tribuneindia.com/news/delhi/cpcb-denies-aqi-data-tampering-allegations))
+
+This app doesn't claim any of that is tampering. It's built so that **it doesn't matter**: the median
+resists one odd monitor, gaps are shown instead of hidden, and the satellite model keeps the trend
+visible if monitors go quiet.
+
+### 7. "Why is the air like this?"
+
+Every spike alert includes likely causes, and you can ask from the tray or phone. The explainer
+uses rules, not an AI model, so every reason is shown with the evidence behind it:
+
+- **Calendar:** Diwali (including the night before and two days of leftover smoke), Dussehra,
+  Gurpurab, Holika Dahan, Lohri, New Year's Eve, plus your own `data/events.csv`.
+- **Local or city-wide:** your area's change vs the median of all Delhi monitors over the same 3 hours.
+- **Weather (Open-Meteo):** wind speed and how much it dropped, mixing-layer height (a shallow
+  layer traps smoke near the ground), fog, rain.
+- **Smoke or dust:** the share of PM10 that is PM2.5.
+- **Crop-burning season** with north-westerly wind, plus fire counts from NASA FIRMS if a free key is set.
+
+> Example of the format: *Likely: city-wide (Delhi median AQI 170 → 390) · wind dropped from 11 to
+> 3 km/h · shallow mixing layer (100 m) · mostly fine particles (PM2.5 is 79% of PM10)*
+
+### 8. Alerts
+
+A jump of ≥100 µg/m³ in an hour, crossing 250 µg/m³, a Delhi-wide jump, or a live-reading spike
+triggers a closable banner, a sound, a Windows notification when the app is in the background, and
+a phone push. Each hour is judged once, so restarts never repeat an alert. Everything is logged to
+`data/alerts.csv`.
+
+### 9. Phone updates and questions (ntfy)
+
+[ntfy](https://ntfy.sh) is a free push-notification app (Android and iPhone, no account). The
+dashboard posts to a private topic you subscribe to:
+
+- **An update every 2 hours**, colour-coded:
+  `🟣 Your area · AQI 334 ↑12 (live 23:00) · PM2.5 ≈242 · Hazardous`
+  `📏 Measured 21:00–22:00 · PM2.5 311 → AQI 471`
+- **Surge alerts** with their likely cause, at high priority.
+- **Ask in plain words** in the ntfy app. The dashboard picks out keywords; no AI model involved:
+
+| You type | Reply |
+|---|---|
+| "what's the AQI right now?" | the current update |
+| "why is it so bad?" | the likely causes |
+| "AQI in Karol Bagh" | that locality, from its nearby monitors |
+| "how is my room?" | indoor reading (if you have a purifier connected) |
+| "show today's graph" / "purifier graph" / "graph of the month" | a chart picture, sized for a phone |
+| "help" | the command list |
+
+![Phone replies](screenshots/v2/v2-ntfy-replies.png) ![Phone graph](screenshots/v2/v2-phone-graph.png)
+
+The messages are sent by the app on your PC: **the PC has to be on** for updates and replies. Anyone
+who knows your topic name can read it, so the app generates a long random one, and phone commands
+are read-only.
+
+### 10. Optional: smart air purifier (indoor air)
+
+*Only if you own a compatible smart purifier that can be read over your home Wi-Fi with its device
+token (tested with Xiaomi Mi Air Purifier 4 Lite via `python-miio`).*
+
+- Logs the purifier's own PM2.5 sensor every 30 s to `data/indoor_YYYY-MM.csv`, tagged with room
+  (editable), mode and humidity.
+- **Purifier graph:** indoor vs outdoor on one chart, "% lower than outdoor", and how fast each
+  switch-on cleaned the room (e.g. *"started at 87, halved in 9 min"*).
+- Detects sustained rises (door opened, cooking) while ignoring the sensor's own jitter. Pausing,
+  and backing off when you're away from home, are handled automatically.
+
+![Purifier view](screenshots/v2/v2-purifier.png)
+
+### 11. Offline and online
+
+| Without internet | Needs internet |
+|---|---|
+| Starts and shows the last good reading (cached) | Live readings, recorder sync, satellite model |
+| All History graphs and daily images (local CSVs) | Phone updates and replies |
+| Purifier logging (home Wi-Fi only) | Locality search, cause explainer's weather data |
+
+The recorder back-fills missed hours when the connection returns, so a night with the PC off
+doesn't leave a gap.
+
+### 12. Compare with past years
+
+`Compare past Novembers.bat` (or `python history_compare.py`) pulls the same weeks of the last
+three years from the government archive (OpenAQ, including retired sensor IDs) plus the satellite
+model, and prints a same-date comparison: average, worst day, hours in the "Hazardous" band.
 
 ---
 
 ## Screenshots
 
-![AQI Dashboard](screenshots/dashboard.png)
-
----
-
-## ⚠️ Transparency Disclaimer
-
-**This app was built using AI (Claude by Anthropic) as the primary implementation tool.**
-
-I did not write the Python from scratch. What I did:
-
-- Defined the product requirements and feature scope from a real personal need
-- Made every architectural decision — multi-source consensus design, geocoding approach, fallback chain, PWA vs APK trade-offs for mobile
-- Directed every iteration: tested each build, identified what broke, specified what needed to change
-- Owned all UI/UX decisions — layout, color system, information hierarchy, what to surface and how
-- Debugged all deployment issues across Render, Railway, and Windows registry
-- Set the quality bar and rejected outputs that didn't meet it
-
-The judgment calls, the "this needs to work differently", and the debugging loop were mine. The Python syntax was not.
-
-If you're a recruiter: this project demonstrates product thinking, system design intuition, and the ability to ship real tools end-to-end. It does not demonstrate raw Python implementation skills, which you can evaluate through other work.
-
----
-
-## What it does
-
-The dashboard opens automatically on every Windows boot and shows:
-
-### 🏠 Your Locality
-The AQI reading from the nearest physical monitoring station to your configured coordinates — with the dominant pollutant, station name, and a plain-language health advisory.
-
-### 🏙️ City Overview
-The city-level representative reading, which WAQI computes from a central station. Useful for understanding the broader trend vs your immediate neighbourhood.
-
-### 📊 Consensus AQI
-The median across all sources that responded. This is the number to trust. If three sources read 160–170 and one reads 290, the median filters out the outlier. A "wide spread" warning fires automatically when sources disagree by more than 50 AQI points.
-
-### 📡 Nearby Stations — within 10 km
-Every monitoring station within your configured radius, sorted by distance. Tells you which direction the air is better or worse, useful if you're deciding a walking or cycling route.
-
-### 🔥 Hotspots — worst 5 within 30 km
-The five highest-AQI stations in the wider area around you. If Anand Vihar is at 280 and your locality is at 140, you know not to drive through it. Gives you a spatial sense of where the pollution is concentrated that day.
-
-### 🔍 Locality Search
-Type any neighbourhood, colony, or city by name. The app geocodes it via OpenStreetMap, finds the nearest physical sensor to those coordinates, and returns the AQI. Works for any populated locality globally — not just cities that have named WAQI entries.
-
----
-
-## Using it for your city — not just Delhi
-
-The app works for **any city in the world** that has air quality monitoring stations. To set your location:
-
-1. Find your coordinates on [Google Maps](https://maps.google.com) — right-click your location → the first line shows `lat, lng`
-2. Open `config.json` and update:
-
-```json
-{
-  "location": {
-    "auto": false,
-    "city": "Mumbai",
-    "lat": 19.0760,
-    "lng": 72.8777
-  },
-  "radius_km": 10,
-  "hotspot_radius_km": 30
-}
-```
-
-- `city` — used for the city-level feed query
-- `lat` / `lng` — your precise location for nearby stations and locality AQI
-- `radius_km` — how wide the nearby stations table searches (default 10 km)
-- `hotspot_radius_km` — how wide the hotspot search goes (default 30 km)
-
-Set `auto: false` always. IP-based geolocation in India is unreliable — ISPs route traffic through different cities and the app will think you're in the wrong place.
-
----
-
-## Data sources & API setup
-
-The app queries four independent sources. Each has a free tier more than sufficient for personal use.
-
-### 1. WAQI — World Air Quality Index *(required)*
-Aggregates CPCB, US Embassy monitors, IIT sensors, and private networks across India. The primary backbone — best station-level granularity for Indian cities.
-
-**Get your free token:**
-1. Go to [aqicn.org/data-platform/token](https://aqicn.org/data-platform/token/)
-2. Enter your email → token arrives in minutes
-3. Add to `config.json` as `"waqi_token"`
-
-### 2. OpenWeatherMap *(recommended)*
-Satellite and model-derived PM2.5, converted to US AQI. Genuinely independent methodology — not based on the same physical CPCB sensors as WAQI and OpenAQ. Provides the most valuable cross-check.
-
-**Get your free key:**
-1. Sign up at [openweathermap.org](https://openweathermap.org/api)
-2. Go to API keys in your account
-3. Add to `config.json` as `"openweather_key"`
-4. Note: keys activate within 2 hours of generation
-
-### 3. OpenAQ *(optional)*
-Open-source aggregation of government monitoring data, including CPCB. A separate pipeline from WAQI pulling from the same underlying sensors — useful as a tie-breaker.
-
-**Get your free key:**
-1. Sign up at [explore.openaq.org](https://explore.openaq.org)
-2. Go to API Keys in your profile
-3. Add to `config.json` as `"openaq_key"`
-
-### 4. IQAir *(optional — see note)*
-Independent commercial sensor network with its own monitors, separate from CPCB. Free tier allows 100 requests/day.
-
-> ⚠️ Note: IQAir's verification email has been flagged as suspicious by some antivirus software (Bitdefender, tested personally). Proceed at your own discretion. The app works fine without it.
-
-**If you want it:** [iqair.com/dashboard](https://www.iqair.com/us/commercial-air-quality-monitors/api) → Add to `config.json` as `"iqair_key"`
+| | |
+|---|---|
+| ![How is this calculated](screenshots/v2/how-calculated.png) | **"How is this calculated?"**: each monitor's raw reading, the conversion and formula with numbers, source links, and cross-checks (monitors reporting, live vs measured, satellite model vs usual ratio) |
 
 ---
 
 ## Setup
 
-### Prerequisites
-- Windows 10 or 11
-- Python 3.10+ from [python.org](https://python.org) — **not** the Microsoft Store version (path quirks break the autostart registry hook)
-
-### Install dependencies
+**Requirements:** Windows 10/11 and Python 3.10+ from [python.org](https://python.org) (not the
+Microsoft Store version).
 
 ```cmd
-pip install -r requirements.txt
-```
-
-### Configure
-
-```cmd
+git clone https://github.com/IshantNaru/AQI-dashboard.git
+cd AQI-dashboard
+setup_venv.bat              :: creates .venv, installs everything, registers autostart
 copy config.example.json config.json
-notepad config.json
+notepad config.json         :: add your keys and location
+"Start AQI Dashboard.bat"
 ```
 
-Fill in your API keys and coordinates. Minimum working config requires only `waqi_token`.
+`setup_venv.bat` also installs the optional purifier library. If you don't need it, plain
+`pip install -r requirements.txt` is enough.
 
-### Run
+### Keys (all free)
 
-```cmd
-python dashboard.py
+| Key | Needed for | Get it |
+|---|---|---|
+| `waqi_token` | **required**: live readings | [aqicn.org/data-platform/token](https://aqicn.org/data-platform/token/) |
+| `openaq_key` | **recommended**: hourly government data, recorder, History | [explore.openaq.org](https://explore.openaq.org) → API keys |
+| `openweather_key` | optional: model reading in Consensus | [openweathermap.org/api](https://openweathermap.org/api) |
+| `iqair_key` | optional | [iqair.com](https://www.iqair.com/us/commercial-air-quality-monitors/api) |
+| `firms_map_key` | optional: crop-fire counts in the cause explainer | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/area/) |
+
+The satellite model (Open-Meteo) and weather need no key.
+
+### Location
+
+Set `location.lat` / `lng` to your own coordinates and leave `"auto": false` (IP geolocation in India
+is unreliable). The app works in any city with public monitors; `recorder.home_area.radius_km`
+sets how far "your area" reaches.
+
+### Phone (optional)
+
+Add to `config.json`, install **ntfy** on your phone, tap **+** and subscribe to the same topic:
+
+```json
+"phone": { "enabled": true, "topic": "aqi-<long-random-string>", "priority": 4 }
 ```
 
-### Install as Windows startup item
+Then send a test from the tray icon → **Send test message to phone**.
 
-```cmd
-python setup_autostart.py
-```
+### Smart purifier (optional)
 
-This writes a single registry entry under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` pointing to `pythonw.exe dashboard.py`. No admin rights, no services, no Task Scheduler. The window opens silently on every login. Remove it anytime:
-
-```cmd
-python uninstall_autostart.py
-```
+Get the device's IP and token (e.g. with a Xiaomi cloud token extractor), check it with
+`python purifier_probe.py --ip <IP> --token <TOKEN>`, then add an `"indoor"` block (see the top of
+`indoor.py`). The token stays in `config.json`, which is never committed.
 
 ---
 
-## Technical implementation
+## Accuracy and limits
 
-### Language & runtime
-- **Python 3.10+** — core language
+- **No sensor at your house:** "your area" is estimated from monitors 0.5–5 km away. A busy road
+  outside your window can be worse.
+- **Shared bias is invisible:** if every monitor reads low together, no method that uses only those
+  monitors can tell. The satellite model is there to catch that kind of drift in the trend.
+- **The live feed carries only some monitors**, so live and measured can differ. The card shows both,
+  and the cross-check flags gaps above 30%.
+- **The satellite model is coarse** (~45 km) and often reads well below the ground monitors in Delhi
+  winters. Use it for direction, not level.
+- **Above AQI 500** the US scale is undefined; values are extended, not official.
+- **Purifier sensors** are low-cost laser sensors: fine for trends and comparisons, not reference-grade.
 
-### GUI framework
-- **PySide6 (Qt 6)** — native Windows-style window, proper threading model via `QThread`, signal/slot architecture for async data fetching without freezing the UI
+---
 
-### Data & networking
-- **`requests`** — HTTP client for all four API sources
-- **Nominatim (OpenStreetMap)** — geocoding for the locality search (free, no key)
-- **Photon (komoot)** — geocoding fallback
+## Your data stays on your PC
 
-### Core algorithms
-- **Haversine formula** — great-circle distance between coordinates, used for sorting nearby stations and filtering hotspots
-- **EPA 2024 NAAQS breakpoints** — piecewise-linear PM2.5 to US AQI conversion (updated standard, not the commonly-used pre-2024 table)
-- **Median consensus** — robust to outliers vs mean; one bad sensor doesn't skew the displayed number
-
-### Persistence
-- **JSON file cache** — stores last successful reading; loaded when all live sources fail (e.g. network not ready at boot)
-
-### Auto-start
-- **Windows Registry** `HKCU\...\Run` — per-user, no elevation required, `pythonw.exe` suppresses the console window
+`config.json` (keys, tokens, phone topic), `data/` (recordings, indoor logs) and logs are in
+`.gitignore` and never leave your machine, except for the requests the app makes to the data
+sources and, if you enable it, the messages it sends to your ntfy topic.
 
 ---
 
@@ -210,31 +364,54 @@ python uninstall_autostart.py
 
 ```
 aqi-dashboard/
-├── dashboard.py            # PySide6 UI + main entry point
-├── aggregator.py           # Multi-source orchestration, consensus, fallback chain
-├── waqi.py                 # WAQI API client
-├── openaq.py               # OpenAQ v3 API client
-├── openweather.py          # OWM client + PM2.5 → US AQI conversion
-├── iqair.py                # IQAir client (optional)
-├── geocoder.py             # Locality name → lat/lng (Nominatim + Photon)
-├── geolocation.py          # IP-based location detection
-├── cache.py                # JSON-backed last-known-good snapshot
-├── setup_autostart.py      # Writes Windows registry startup entry
-├── uninstall_autostart.py  # Removes it
-├── config.example.json     # Template — copy to config.json and add your keys
-└── requirements.txt        # PySide6, requests
+├── dashboard.py           # main window, tray, cards, alerts banner, phone integration
+├── history_panel.py       # Day / Month / Purifier graphs, outlier axis, label layout, phone renders
+├── recorder.py            # background recorder: OpenAQ hourly + WAQI live → monthly CSVs, daily stats
+├── aqi_math.py            # EPA 2024 PM2.5 ↔ AQI, WAQI older-table conversion
+├── cards.py               # live vs measured values for the cards and phone
+├── verify.py              # "How is this calculated?" + cross-checks
+├── area.py                # live area reading: median / average / distance-weighted
+├── cams.py                # satellite-based model (Copernicus CAMS via Open-Meteo)
+├── surge.py               # cause explainer + Delhi-wide snapshots
+├── alerts.py              # spike alerts (area, live, Delhi-wide)
+├── phone.py               # ntfy updates, alerts, keyword commands
+├── indoor.py              # optional smart-purifier logging
+├── evaluate.py            # daily accuracy / robustness / data-health report
+├── method_test.py         # leave-one-out + fault-injection tests (see METHOD_TEST.md)
+├── history_compare.py     # same dates, past years (monitors + satellite model)
+├── waqi.py · openaq.py · openweather.py · iqair.py · aggregator.py · geocoder.py
+├── purifier_probe.py · purifier_net_check.py   # purifier connection helpers
+├── setup_venv.bat · Start AQI Dashboard.bat · setup_autostart.py · uninstall_autostart.py
+└── config.example.json
 ```
 
 ---
 
-## Limitations
+## Transparency disclaimer
 
-- **US AQI scale, not Indian** — WAQI normalises all readings to the US EPA scale. CPCB publishes on Indian breakpoints which diverge in the 100–200 band. If you need CPCB-native numbers, the source would need to be replaced with direct CPCB scraping.
-- **Real-time hotspots** — a spike from fireworks or a fire appears as a hotspot for that session. Chronic hotspot identification would require historical data logging, which this version does not do.
-- **No threshold alerts** — the app surfaces information at boot only. It does not monitor continuously or notify you if AQI spikes mid-day.
-- **Windows only** — the auto-start mechanism is registry-based. A companion mobile PWA version (FastAPI + Railway) is maintained separately.
+**This app was built with AI (Claude by Anthropic) as the main implementation tool, in v1 and v2.**
 
+What I did: defined what the app had to answer from living with Delhi's air, made the
+design calls (median over nearest station, live vs measured kept apart, an independent satellite
+check, showing every calculation), tested every build on real days, caught what was wrong (mixed
+AQI scales, misleading cards, false door-opening alerts, unreadable graphs) and set the bar for what
+counted as correct. The Python was written by Claude under that direction.
 
+If you're evaluating this as a portfolio project: it shows product thinking, data-quality judgement
+and the ability to ship and validate a real tool end to end. It is not evidence of hand-written
+Python.
 
-*Built out of a genuine need to make AQI awareness effortless in a city where it directly affects daily decisions.*  
-*AI-assisted development — see disclaimer above.*
+---
+
+## Sources
+
+- AQLI 2025, Delhi life expectancy: <https://aqli.epic.uchicago.edu/post/delhi-residents-losing-8-2-years-of-their-lives-to-high-air-pollution-report-en>
+- WHO 2021 air quality guidelines (summary): <https://www.iqair.com/newsroom/2021-WHO-air-quality-guidelines>
+- US EPA 2024 PM2.5 AQI breakpoints: <https://www.epa.gov/system/files/documents/2024-02/pm-naaqs-air-quality-index-fact-sheet.pdf>
+- Diwali 2026 data omission and CPCB response: <https://m.thewire.in/article/environment/cpcb-air-pollutant-concentrations-omitted-why-thats-a-problem>
+- Post-Diwali data gap: <https://theprint.in/feature/theres-a-data-gap-in-delhis-post-diwali-pollution-picture/3093881/>
+- CAG audit of monitoring: <https://www.tribuneindia.com/news/delhi/cag-report-flags-defects-in-monitoring-air-quality-data>
+- CPCB denial of tampering allegations: <https://www.tribuneindia.com/news/delhi/cpcb-denies-aqi-data-tampering-allegations>
+- Copernicus CAMS assimilation (MODIS AOD): <https://acp.copernicus.org/preprints/acp-2020-467/acp-2020-467.pdf>
+- Open-Meteo Air Quality API: <https://open-meteo.com/en/docs/air-quality-api>
+- Data: OpenAQ (government monitors), WAQI / aqicn.org, OpenWeather, Copernicus CAMS, NASA FIRMS.

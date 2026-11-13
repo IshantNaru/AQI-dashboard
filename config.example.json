@@ -1,14 +1,62 @@
 {
   "waqi_token": "YOUR_WAQI_TOKEN_HERE",
+  "openaq_key": "",
   "openweather_key": "",
   "iqair_key": "",
-  "openaq_key": "",
+  "firms_map_key": "",
   "location": {
     "auto": false,
     "city": "Delhi",
     "lat": 28.6139,
-    "lng": 77.2090
+    "lng": 77.209
   },
   "radius_km": 10,
-  "hotspot_radius_km": 30
+  "hotspot_radius_km": 30,
+  "recorder": {
+    "enabled": true,
+    "interval_min": 15,
+    "backfill_days": 31,
+    "home_area": {
+      "radius_km": 5,
+      "max_radius_km": 8,
+      "exclude_location_ids": []
+    },
+    "min_monitors": 2,
+    "tracked_station": {
+      "mode": "worst_30d",
+      "city": "Delhi",
+      "lat": 28.6139,
+      "lng": 77.209,
+      "radius_km": 25,
+      "name_filter": "Delhi"
+    }
+  },
+  "alerts": {
+    "enabled": true,
+    "sound": true,
+    "pm25_jump": 100,
+    "pm25_level": 250,
+    "pm25_clear": 150,
+    "waqi_aqi_jump": 100,
+    "waqi_aqi_level": 300,
+    "city_aqi_jump": 80,
+    "city_aqi_level": 300,
+    "explain": true
+  },
+  "phone": {
+    "enabled": false,
+    "server": "https://ntfy.sh",
+    "topic": "aqi-REPLACE-WITH-A-LONG-RANDOM-STRING",
+    "times": ["00:00", "02:00", "04:00", "06:00", "08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "22:00"],
+    "priority": 4,
+    "surge_alerts": true,
+    "commands": true,
+    "late_ok_min": 90
+  },
+  "indoor": {
+    "poll_on_s": 30,
+    "poll_off_s": 120,
+    "spike_ugm3": 15,
+    "devices": []
+  }
 }

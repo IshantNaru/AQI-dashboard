@@ -10,7 +10,7 @@
 ![Version](https://img.shields.io/badge/version-2.0-orange?style=flat-square)
 ![Sources](https://img.shields.io/badge/sources-govt%20monitors%20%C2%B7%20WAQI%20%C2%B7%20satellite%20model-purple?style=flat-square)
 
-![Dashboard](screenshots/v2/dashboard.png)
+![Dashboard](screenshots/dashboard.png)
 
 ---
 

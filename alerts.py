@@ -9,7 +9,7 @@ An alert fires when:
   • PM2.5 rises by ≥ pm25_jump µg/m³ from one hour to the next, or
   • PM2.5 crosses up through pm25_level, or
   • WAQI live AQI rises by ≥ waqi_aqi_jump between readings, or crosses up through waqi_aqi_level.
-  • Delhi-wide: the median live AQI of all Delhi monitors (recorded each sync by surge.py) rises by
+  • City-wide: the median live AQI of all monitors in your city (recorded each sync by surge.py) rises by
     ≥ city_aqi_jump within ~1 h, or crosses city_aqi_level.
 Every spike alert carries a "Likely cause" line from surge.explain() (festival, city-wide vs local,
 wind/mixing height, particle mix, stubble fires).
@@ -47,6 +47,7 @@ class AlertManager:
         self.city_jump = float(a.get("city_aqi_jump", 80))
         self.city_level = float(a.get("city_aqi_level", 300))
         self.explain = a.get("explain", True)
+        self.city = (config.get("location") or {}).get("city") or "your city"
         self.store = store or Store()
         self.state_path = os.path.join(self.store.dir, "alerts_state.json")
         try:
@@ -150,12 +151,12 @@ class AlertManager:
             prev = [(t, v) for t, v in cs if timedelta(minutes=40) <= t1 - t <= timedelta(minutes=80)]
             why = []
             if prev and v1 - prev[0][1] >= self.city_jump:
-                why.append(f"Delhi-wide median AQI jumped {prev[0][1]:.0f} → {v1:.0f} in about an hour")
+                why.append(f"{self.city}-wide median AQI jumped {prev[0][1]:.0f} → {v1:.0f} in about an hour")
             low = [v for t, v in cs if t < t1]
             if v1 >= self.city_level and low and low[-1] < self.city_level:
-                why.append(f"Delhi-wide median AQI crossed {self.city_level:.0f} (now {v1:.0f})")
+                why.append(f"{self.city}-wide median AQI crossed {self.city_level:.0f} (now {v1:.0f})")
             if why:
-                out.append({"kind": "spike", "title": f"⚠ Air worsening across Delhi ({t1:%H:%M})",
+                out.append({"kind": "spike", "title": f"⚠ Air worsening across {self.city} ({t1:%H:%M})",
                             "body": "; ".join(why) + "."})
                 self.state["active"] = True
 

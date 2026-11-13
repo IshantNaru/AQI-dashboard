@@ -154,7 +154,7 @@ class RecorderWorker(QThread):
     def __init__(self, recorder, after=None):
         super().__init__()
         self.recorder = recorder
-        self.after = after                     # runs in this thread after the sync (alerts, Delhi snapshot)
+        self.after = after                     # runs in this thread after the sync (alerts, city snapshot)
 
     def run(self):
         try:
@@ -1237,6 +1237,7 @@ class DashboardWindow(QMainWindow):
 
     def _phone_ctx(self):
         ctx = dict(getattr(self, "_outdoor_ctx", {}) or {})
+        ctx["city_name"] = (self.config.get("location") or {}).get("city") or "City"
         try:
             import surge
             cs = surge.city_series(surge.DATA_DIR, datetime.now().astimezone(), hours=2)
@@ -1665,15 +1666,15 @@ class DashboardWindow(QMainWindow):
     # ── Spike alerts ─────────────────────────────────────────────────────────
 
     def _after_sync(self):
-        """Runs in the recorder thread: Delhi-wide snapshot, then alerts (+ likely cause)."""
+        """Runs in the recorder thread: city-wide snapshot, then alerts (+ likely cause)."""
         import logging
         import surge
         try:
             surge.ensure_events_template()
             if self._waqi_client is not None:
-                surge.record_city(self._waqi_client)
+                surge.record_city(self._waqi_client, config=self.config)
         except Exception as e:
-            logging.getLogger("aqi").warning("Delhi-wide snapshot failed: %s", e)
+            logging.getLogger("aqi").warning("city-wide snapshot failed: %s", e)
         try:                                     # satellite-model PM2.5 (CAMS), at most hourly
             import cams
             cams.update(self.config)
@@ -1695,7 +1696,7 @@ class DashboardWindow(QMainWindow):
         if getattr(self, "_explain_worker", None) is not None and self._explain_worker.isRunning():
             return
         self.alert_bar.setStyleSheet("QFrame { background:#1b2433; border:1px solid #38bdf8; border-radius:8px; }")
-        self.alert_lbl.setText("<b>Checking why the air is like this…</b> (calendar, Delhi-wide data, weather)")
+        self.alert_lbl.setText("<b>Checking why the air is like this…</b> (calendar, city-wide data, weather)")
         self.alert_bar.show()
         self.show_dashboard()
         self._explain_worker = ExplainWorker(self.config)

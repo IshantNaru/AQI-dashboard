@@ -1,4 +1,4 @@
-# AQI Dashboard v2: an air-quality monitor for Delhi and North India
+# AQI Dashboard v2: an air-quality monitor for Indian cities, built and tested in Delhi
 
 > A Windows desktop app that records your neighbourhood's PM2.5 hour by hour, shows **what the air
 > is doing now and how it got here**, explains **why** it got worse, sends updates to your phone, and
@@ -14,9 +14,16 @@
 
 ---
 
+> **Works in any Indian city with public air-quality monitors** (and most cities worldwide): set your
+> own location and it finds the government monitors around you. It was built and validated in
+> Delhi, so the examples and numbers below come from there. See [Using it in your city](#using-it-in-your-city)
+> for what changes, including the parts that are specific to North India.
+
 ## Why this exists
 
-For about four months every year, Delhi's air is among the worst measured anywhere. Crop-residue
+Air pollution is a year-round problem across India's cities, and in North India it becomes an
+emergency every winter. Delhi, where this app was built, shows it most starkly: for about four
+months every year, its air is among the worst measured anywhere. Crop-residue
 smoke from Punjab and Haryana, winter temperature inversions that trap pollution near the
 ground, traffic, construction dust and festival fireworks all add up, and they arrive on top of
 an annual average that is already very high.
@@ -80,7 +87,7 @@ station's AQI plus a median across four websites. v2 is a recorder and analyst.
 | Gaps | invisible | missing monitor hours **marked on the graph and logged** |
 | Independent check | none | **satellite-based model (Copernicus CAMS)**, unaffected by monitors going offline |
 | Why is it bad? | n/a | **cause explainer**: festival calendar, city-wide vs local, wind, mixing height, smoke vs dust, crop-fire season |
-| Alerts | none | spikes in your area or across Delhi → banner, sound, Windows notification, phone |
+| Alerts | none | spikes in your area or across your city → banner, sound, Windows notification, phone |
 | Phone | none | **ntfy push updates every 2 h**, and you can **ask questions** ("why is it so bad?", "AQI in Rohini", "graph") |
 | Indoor (optional) | none | smart purifier logging: indoor vs outdoor, clean-down time, door-opening detection |
 | Trust | "median of 4 sources" | **"How is this calculated?"** on every card: raw values, formula, links, cross-checks |
@@ -146,8 +153,8 @@ explains the method in full (see `METHOD_TEST.md`).
 *Diwali day, 9 Nov 2026. Hatched band = hours the government monitors didn't publish. The ▲ at the
 top edge is an outlier drawn on the axis boundary with its real value (1710).*
 
-- **Day view:** hourly AQI and PM2.5 for your area and for **Delhi's worst monitor of the last 30
-  days** (picked automatically, re-picked monthly). Values are printed on the points (labels move
+- **Day view:** hourly AQI and PM2.5 for your area and for **your city's worst monitor of the last
+  30 days** (picked automatically, re-picked monthly; "Worst in Delhi" in these screenshots). Values are printed on the points (labels move
   so they don't overlap), and WAQI live readings appear as rings.
 - **Month view:** daily AQI (EPA method: AQI of the 24-hour mean), with full and incomplete days
   marked.
@@ -201,18 +208,20 @@ uses rules, not an AI model, so every reason is shown with the evidence behind i
 
 - **Calendar:** Diwali (including the night before and two days of leftover smoke), Dussehra,
   Gurpurab, Holika Dahan, Lohri, New Year's Eve, plus your own `data/events.csv`.
-- **Local or city-wide:** your area's change vs the median of all Delhi monitors over the same 3 hours.
+- **Local or city-wide:** your area's change vs the median of all monitors in your city over the same 3 hours.
 - **Weather (Open-Meteo):** wind speed and how much it dropped, mixing-layer height (a shallow
   layer traps smoke near the ground), fog, rain.
 - **Smoke or dust:** the share of PM10 that is PM2.5.
-- **Crop-burning season** with north-westerly wind, plus fire counts from NASA FIRMS if a free key is set.
+- **Crop-burning season** (North India only: Punjab, Haryana, Delhi-NCR, UP up to about Lucknow, northern
+  Rajasthan): Oct–Nov
+  with a north-westerly wind, plus fire counts from NASA FIRMS if a free key is set. Skipped elsewhere.
 
 > Example of the format: *Likely: city-wide (Delhi median AQI 170 → 390) · wind dropped from 11 to
 > 3 km/h · shallow mixing layer (100 m) · mostly fine particles (PM2.5 is 79% of PM10)*
 
 ### 8. Alerts
 
-A jump of ≥100 µg/m³ in an hour, crossing 250 µg/m³, a Delhi-wide jump, or a live-reading spike
+A jump of ≥100 µg/m³ in an hour, crossing 250 µg/m³, a city-wide jump, or a live-reading spike
 triggers a closable banner, a sound, a Windows notification when the app is in the background, and
 a phone push. Each hour is judged once, so restarts never repeat an alert. Everything is logged to
 `data/alerts.csv`.
@@ -315,9 +324,8 @@ The satellite model (Open-Meteo) and weather need no key.
 
 ### Location
 
-Set `location.lat` / `lng` to your own coordinates and leave `"auto": false` (IP geolocation in India
-is unreliable). The app works in any city with public monitors; `recorder.home_area.radius_km`
-sets how far "your area" reaches.
+Set `location.lat` / `lng` / `city` to your own and leave `"auto": false` (IP geolocation in India is
+unreliable). See [Using it in your city](#using-it-in-your-city).
 
 ### Phone (optional)
 
@@ -337,6 +345,28 @@ Get the device's IP and token (e.g. with a Xiaomi cloud token extractor), check 
 
 ---
 
+## Using it in your city
+
+Set three things in `config.json` and the rest follows:
+
+```json
+"location": { "auto": false, "city": "Mumbai", "lat": 19.0760, "lng": 72.8777 }
+```
+
+| What | Where it comes from | Anything to change? |
+|---|---|---|
+| **Your area** | government monitors within `recorder.home_area.radius_km` (default 5 km) of your location | Raise the radius to 8–10 km in cities with fewer monitors. "Your area" needs at least 2 within `max_radius_km`. |
+| **City-wide comparison and alerts** | all monitors in a box about ±28 km around your location, labelled with `location.city` | Optional `"city_box": [lat1, lng1, lat2, lng2]` to match your city's outline exactly |
+| **"Worst in your city" line** | `recorder.tracked_station`. If you delete that block, it uses your location and city name | `name_filter` must match how monitor names spell the city, e.g. "Bengaluru", not "Bangalore" |
+| **Satellite model, weather, festivals** | your coordinates; Indian festival calendar plus your own `data/events.csv` | none |
+| **Crop-burning check** | only runs for the north Indian plains (lat 25–32.5°N, lng 73.5–84.5°E) | `"stubble_check": true/false` to force it on or off |
+
+Monitor coverage differs a lot between cities. Delhi has dozens of government monitors; many
+smaller cities have only a handful. With fewer monitors, "your area" covers a wider radius and the
+satellite model becomes more useful as a cross-check.
+
+---
+
 ## Accuracy and limits
 
 - **No sensor at your house:** "your area" is estimated from monitors 0.5–5 km away. A busy road
@@ -345,8 +375,8 @@ Get the device's IP and token (e.g. with a Xiaomi cloud token extractor), check 
   monitors can tell. The satellite model is there to catch that kind of drift in the trend.
 - **The live feed carries only some monitors**, so live and measured can differ. The card shows both,
   and the cross-check flags gaps above 30%.
-- **The satellite model is coarse** (~45 km) and often reads well below the ground monitors in Delhi
-  winters. Use it for direction, not level.
+- **The satellite model is coarse** (~45 km) and, in Delhi's winter, often reads well below the
+  ground monitors. Use it for direction, not level.
 - **Above AQI 500** the US scale is undefined; values are extended, not official.
 - **Purifier sensors** are low-cost laser sensors: fine for trends and comparisons, not reference-grade.
 
@@ -372,8 +402,8 @@ aqi-dashboard/
 ├── verify.py              # "How is this calculated?" + cross-checks
 ├── area.py                # live area reading: median / average / distance-weighted
 ├── cams.py                # satellite-based model (Copernicus CAMS via Open-Meteo)
-├── surge.py               # cause explainer + Delhi-wide snapshots
-├── alerts.py              # spike alerts (area, live, Delhi-wide)
+├── surge.py               # cause explainer + city-wide snapshots
+├── alerts.py              # spike alerts (area, live, city-wide)
 ├── phone.py               # ntfy updates, alerts, keyword commands
 ├── indoor.py              # optional smart-purifier logging
 ├── evaluate.py            # daily accuracy / robustness / data-health report

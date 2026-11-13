@@ -320,7 +320,12 @@ class Recorder:
             hs = self.rcfg.get("home_station") or None      # e.g. "Shadipur" pins that monitor
             t["home"] = {"name": hs, "lat": float(loc["lat"]), "lng": float(loc["lng"]),
                          "label": f"Your area ({hs or loc.get('city', '')})".replace(" ()", "")}
-        tr = self.rcfg.get("tracked_station", DEFAULT_TRACKED)
+        # no tracked_station in config → worst monitor of the user's own city (not Delhi by default)
+        tr = self.rcfg.get("tracked_station")
+        if tr is None:
+            tr = dict(DEFAULT_TRACKED)
+            if loc.get("lat") is not None and loc.get("city"):
+                tr.update(city=loc["city"], lat=float(loc["lat"]), lng=float(loc["lng"]), name_filter=loc["city"])
         if tr and tr.get("mode") == "worst_30d":
             st = self.state["stations"].get("tracked") or {}
             nm = _short_name(st.get("name")) if str(st.get("sig", "")).startswith("worst|") else ""

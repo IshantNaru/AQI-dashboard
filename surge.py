@@ -8,10 +8,12 @@ judge it yourself. Evidence used:
   1. Calendar   — festival nights (Diwali incl. the night before and two residual days, Dussehra,
                   Gurpurab, Holika Dahan, Lohri, New Year's Eve) + anything you add to
                   data/events.csv (date,name — e.g. a cricket win, a big wedding next door).
-  2. Local vs Delhi-wide — your area's live AQI change vs the median of all Delhi monitors over
+  2. Local vs city-wide — your area's live AQI change vs the median of all monitors in your city over
                   the same ~3 h. City-wide rise → weather / festival / regional smoke.
                   Only your area → a nearby source (fire, garbage burning, traffic, construction).
-                  Delhi-wide medians are recorded every sync into data/city_live_YYYY-MM.csv.
+                  City-wide medians are recorded every sync into data/city_live_YYYY-MM.csv. The city
+                  is a box around config.json → location (±0.25° lat, ±0.28° lng, about ±28 km), or
+                  your own "city_box": [lat1, lng1, lat2, lng2].
   3. Weather (Open-Meteo, free, no key) — wind speed and its drop, mixing-layer height
                   (low = pollution trapped near the ground), humidity/fog, rain, wind direction.
   4. Particle mix — PM2.5 as % of PM10 in your area: high = combustion (smoke, firecrackers,
@@ -35,8 +37,39 @@ import requests
 
 from recorder import DATA_DIR
 
-DELHI_BOX = [28.40, 76.84, 28.88, 77.35]          # lat1, lng1, lat2, lng2 (NCT of Delhi)
 STUBBLE_BOX = "73.8,28.4,77.6,32.5"                # west,south,east,north: Punjab + Haryana
+# Crop-residue smoke from Punjab/Haryana matters for the north Indian plains (Punjab, Haryana,
+# Delhi-NCR, western/central UP, north Rajasthan). Elsewhere the check is skipped.
+NORTH_PLAINS = (25.0, 73.5, 32.5, 84.5)            # lat1, lng1, lat2, lng2
+
+
+def city_name(config):
+    return ((config or {}).get("location") or {}).get("city") or "your city"
+
+
+def city_box(config):
+    """[lat1, lng1, lat2, lng2] of the user's city: config "city_box", else a box around location."""
+    cfg = config or {}
+    if cfg.get("city_box") and len(cfg["city_box"]) == 4:
+        return [float(v) for v in cfg["city_box"]]
+    loc = cfg.get("location") or {}
+    if loc.get("lat") is None or loc.get("lng") is None:
+        return None
+    lat, lng = float(loc["lat"]), float(loc["lng"])
+    return [lat - 0.25, lng - 0.28, lat + 0.25, lng + 0.28]
+
+
+def in_north_plains(config):
+    cfg = config or {}
+    if "stubble_check" in cfg:                      # explicit override in config.json
+        return bool(cfg["stubble_check"])
+    loc = cfg.get("location") or {}
+    try:
+        lat, lng = float(loc["lat"]), float(loc["lng"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    a, b, c, d = NORTH_PLAINS
+    return a <= lat <= c and b <= lng <= d
 
 # Built-in festival table (verified dates). Years beyond it come from the `holidays` package if
 # installed, and from data/events.csv.
@@ -134,8 +167,11 @@ def festival_context(now, data_dir=DATA_DIR):
     return found
 
 
-# ── Delhi-wide snapshot (called every recorder sync) ───────────────────────
-def record_city(waqi, data_dir=DATA_DIR, now=None, min_gap_min=14):
+# ── city-wide snapshot (called every recorder sync) ────────────────────────
+def record_city(waqi, data_dir=DATA_DIR, now=None, min_gap_min=14, config=None, box=None):
+    box = box or city_box(config)
+    if not box:
+        return None
     now = now or datetime.now().astimezone()
     path = os.path.join(data_dir, f"city_live_{now:%Y-%m}.csv")
     rows = _read(path)
@@ -146,7 +182,7 @@ def record_city(waqi, data_dir=DATA_DIR, now=None, min_gap_min=14):
         except ValueError:
             pass
     pts = []
-    for s in waqi.stations_in_bounds(DELHI_BOX) or []:
+    for s in waqi.stations_in_bounds(box) or []:
         try:
             a = float(s.get("aqi"))
         except (TypeError, ValueError):
@@ -306,6 +342,7 @@ def explain(config, now=None, data_dir=DATA_DIR, trigger="manual", weather=None,
     """Returns {"summary": one line, "reasons": [(strength, text)], "unknown": [..], "evidence": {...}}."""
     now = now or datetime.now().astimezone()
     loc = config.get("location") or {}
+    cname = city_name(config)
     reasons, unknown, ev = [], [], {"time": now.isoformat(timespec="seconds"), "trigger": trigger}
 
     fest = festival_context(now, data_dir)
@@ -322,14 +359,14 @@ def explain(config, now=None, data_dir=DATA_DIR, trigger="manual", weather=None,
     if home and city:
         h, c = home[2], city[2]
         if c >= 40 and (h <= 0 or c >= 0.5 * h):
-            reasons.append((4, f"city-wide: Delhi median AQI {city[1]:.0f} → {city[0]:.0f} (+{c:.0f}) while your area "
+            reasons.append((4, f"city-wide: {cname} median AQI {city[1]:.0f} → {city[0]:.0f} (+{c:.0f}) while your area "
                                f"changed {h:+.0f} — weather, festival or regional smoke, not a source on your street"))
         elif h >= 40 and c < 0.4 * h:
-            reasons.append((4, f"local to your area: your AQI {home[1]:.0f} → {home[0]:.0f} (+{h:.0f}) while Delhi's "
+            reasons.append((4, f"local to your area: your AQI {home[1]:.0f} → {home[0]:.0f} (+{h:.0f}) while {cname}'s "
                                f"median moved only {c:+.0f} — a nearby source (burning, fire, traffic jam, "
                                "construction, fireworks at an event)"))
     elif not city:
-        unknown.append("no Delhi-wide comparison yet (recorded every sync from now on)")
+        unknown.append(f"no {cname}-wide comparison yet (recorded every sync from now on)")
 
     wx = weather
     if wx is None and loc.get("lat") is not None:
@@ -375,7 +412,7 @@ def explain(config, now=None, data_dir=DATA_DIR, trigger="manual", weather=None,
             reasons.append((2, f"mostly coarse dust (PM2.5 only {share:.0f}% of PM10) — dust: construction, "
                                "road dust, dust-laden wind"))
 
-    stubble_season = (now.month == 10 and now.day >= 1) or (now.month == 11)
+    stubble_season = ((now.month == 10 and now.day >= 1) or (now.month == 11)) and in_north_plains(config)
     d = wx.get("wind_dir")
     if stubble_season:
         if fires is None and config.get("firms_map_key"):
@@ -387,7 +424,7 @@ def explain(config, now=None, data_dir=DATA_DIR, trigger="manual", weather=None,
         nw = d is not None and 280 <= d <= 345 and (w or 0) >= 4
         if fires is not None and fires >= 300 and nw:
             reasons.append((3, f"{fires} fire detections in Punjab + Haryana in 24 h and a north-westerly wind — "
-                               "stubble smoke likely reaching Delhi"))
+                               f"stubble smoke likely reaching {cname}"))
         elif nw:
             reasons.append((2, "stubble-burning season with a north-westerly wind (from Punjab/Haryana)"
                                + (f"; {fires} fires detected in 24 h" if fires is not None else

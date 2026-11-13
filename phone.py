@@ -10,7 +10,7 @@ What is sent:
     like the dashboard cards — Your area / City / All sources, each AQI with PM2.5 under it — plus
     the purifier reading. Sent at ntfy priority 4 ("high"), which pops up on the phone screen;
     set "priority": 3 for quiet notifications in the shade only;
-  • every spike alert the app raises (your area or Delhi-wide), with its likely cause.
+  • every spike alert the app raises (your area or city-wide), with its likely cause.
 
 The app on your laptop sends them, so nothing arrives while the laptop is off or asleep. A slot
 missed by up to "late_ok_min" minutes (default 90) is still sent, marked late; older ones are
@@ -165,7 +165,7 @@ class PhoneNotifier:
         """Compact, colour-coded update. Returns (title, message, values-for-next-trend).
 
         Title = your area at a glance:  🔴 Your area · AQI 180 ↑12 · PM2.5 108 · Unhealthy
-        Body  = one line per place:      🔴 Delhi · AQI 171 ↓4 · PM2.5 ≈84
+        Body  = one line per place:      🔴 <your city> · AQI 171 ↓4 · PM2.5 ≈84
                                          🟢 Bedroom · PM2.5 22 · purifier on
                                          footer: units + which hour the measured PM2.5 is
         Colours follow the US AQI scale (🟢 Good 🟡 Moderate 🟠 Sensitive 🔴 Unhealthy
@@ -186,8 +186,8 @@ class PhoneNotifier:
             h = str(ctx.get("hour") or "")
             span = f"{h[:5]}–{(int(h[:2]) + 1) % 24:02d}:00" if h[:2].isdigit() else h
             meas = {"pm25": _f(ctx["pm25"]), "aqi": pm25_to_aqi(_f(ctx["pm25"])), "span": span}
-        d_aqi = _f(ctx.get("city_aqi"))                        # Delhi-wide median of all monitors
-        d_label = "Delhi"
+        d_aqi = _f(ctx.get("city_aqi"))                        # city-wide median of all monitors
+        d_label = ctx.get("city_name") or "City"
         if d_aqi is None:
             d_aqi = _f((cards.get("city") or {}).get("aqi"))
         d_pm = aqi_to_pm25(d_aqi) if d_aqi is not None else None
@@ -260,7 +260,7 @@ import time as _time
 
 HELP_TEXT = (
     "Ask in your own words. I look for these words:\n\n"
-    "📍 aqi / now — current AQI + PM2.5 for your area, Delhi and your room\n"
+    "📍 aqi / now — current AQI + PM2.5 for your area, your city and your room\n"
     "    e.g. \"what's the AQI right now?\" · \"send the update again\"\n\n"
     "💡 why — likely reasons the air is bad (festival, calm wind, smoke vs dust…)\n"
     "    e.g. \"why is the AQI so high?\"\n\n"

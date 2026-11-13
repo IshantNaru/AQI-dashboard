@@ -138,7 +138,7 @@ def area_html(store, data, cards, outdoor_ctx, configured_monitors=5):
                              f"{txt}</li>")
         parts.append(f"</ul><p>Median of the {area.get('n')} → <b>AQI {area.get('median')}</b> "
                      f"≈ PM2.5 {c.get('pm25') or 0:.0f} µg/m³. Check any of these on the "
-                     f"<a href='https://aqicn.org/map/delhi/'>aqicn.org Delhi map</a>.</p>")
+                     f"<a href='https://aqicn.org/map/india/'>aqicn.org map</a>.</p>")
     # measured
     if row:
         parts.append(f"<h4>Measured line: {row['hour_start_local'][11:16]} hour</h4>"

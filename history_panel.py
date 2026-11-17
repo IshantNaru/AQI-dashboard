@@ -813,7 +813,7 @@ class HistoryWindow(QWidget):
     def _setup_chart(self, chart, x, y_max, unit, band_index):
         """band_index 0 = AQI bounds, 1 = PM2.5 bounds."""
         y = QValueAxis()
-        y.setRange(0, y_max); y.setTickCount(7); y.setLabelFormat("%d")
+        y.setRange(0, y_max); y.setTickCount(_tick_count(y_max)); y.setLabelFormat("%d")   # 0, 50, 100 …
         y.setTruncateLabels(False)                 # numbers, never "…", however narrow the chart
         y.setTitleText(unit); y.setTitleBrush(QBrush(QColor(MUTED)))
         y.setLabelsColor(QColor(MUTED)); y.setGridLineColor(QColor(GRID))
@@ -1169,8 +1169,9 @@ class HistoryWindow(QWidget):
                     "(fetched hourly while the app runs; the first fetch fills the last 3 months).</span>")
         w_max = max([v["wind_kmh"] or 0 for _, v in rows] + [10])
         b_max = max([v["mixing_height_m"] or 0 for _, v in rows] + [600])
-        yw = QValueAxis(); yw.setRange(0, _nice_tight(w_max * 1.15)); yw.setTickCount(4); yw.setLabelFormat("%d")
-        yb = QValueAxis(); yb.setRange(0, _nice_tight(b_max * 1.05)); yb.setTickCount(4); yb.setLabelFormat("%d")
+        tw, tb = _nice_tight(w_max * 1.15, 4), _nice_tight(b_max * 1.05, 4)     # thin strip: ≤ 4 gaps
+        yw = QValueAxis(); yw.setRange(0, tw); yw.setTickCount(_tick_count(tw, 4)); yw.setLabelFormat("%d")
+        yb = QValueAxis(); yb.setRange(0, tb); yb.setTickCount(_tick_count(tb, 4)); yb.setLabelFormat("%d")
         for ax, title, colr in ((yw, "Wind km/h", WIND_COLOR), (yb, "Mixing m", BLH_COLOR)):
             ax.setTitleText(title); ax.setTitleBrush(QBrush(QColor(colr)))
             ax.setLabelsColor(QColor(MUTED)); ax.setGridLineColor(QColor(GRID))
@@ -1940,18 +1941,28 @@ def aqi_category_name(a):
     return category(a)
 
 
-def _nice_tight(v):
-    """Smallest round axis top ≥ v (6 equal ticks), no extra headroom."""
-    for tick in (5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000):
-        if v <= tick * 6:
-            return tick * 6
-    return int(-(-v // 6000) * 6000)
+_STEPS = (5, 10, 20, 50, 100, 200, 500, 1000, 2000)    # gridline gaps people read easily: 50, 100, 150 …
 
 
-def _nice(v):
-    """Axis max that splits into 6 round ticks (tickCount = 7)."""
-    v = max(float(v), 10.0) * 1.08
-    for tick in (5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500):
-        if v <= tick * 6:
-            return tick * 6
-    return int(-(-v // 3000) * 3000)
+def _axis_step(top, max_intervals=10):
+    """Gap between gridlines: the smallest round step that needs ≤ max_intervals of them."""
+    for st in _STEPS:
+        if top / st <= max_intervals + 1e-9:
+            return st
+    return _STEPS[-1] * int(-(-top // (_STEPS[-1] * max_intervals)))
+
+
+def _nice_tight(v, max_intervals=10):
+    """Smallest axis top ≥ v that is a whole number of round steps (0, 50, 100 … 450), no headroom."""
+    v = max(float(v), 1.0)
+    st = _axis_step(v, max_intervals)
+    return int(-(-v // st) * st)
+
+
+def _nice(v, max_intervals=10):
+    """Axis top with a little headroom above v, on the same round steps."""
+    return _nice_tight(max(float(v), 10.0) * 1.08, max_intervals)
+
+
+def _tick_count(top, max_intervals=10):
+    return int(round(top / _axis_step(top, max_intervals))) + 1

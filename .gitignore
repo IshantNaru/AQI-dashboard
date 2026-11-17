@@ -12,4 +12,5 @@ config.backup-*.json
 Command to Run.txt
 Claude outputs/
 AQI-Dashboard-Documentation.pdf
+AQI-Dashboard-Documentation-v2.pdf
 *.tmp.png

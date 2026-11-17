@@ -150,17 +150,40 @@ explains the method in full (see `METHOD_TEST.md`).
 ### 4. History graphs
 
 ![Day view: Diwali 2026](screenshots/v2/v2-history-day-diwali.png)
-*Diwali day, 9 Nov 2026. Hatched band = hours the government monitors didn't publish. The ▲ at the
-top edge is an outlier drawn on the axis boundary with its real value (1710).*
+*Diwali, 9 Nov 2026. Left axis PM2.5, right axis the matching AQI. The ▲ on the top edge is the 03:30
+reading (933 µg/m³, AQI 1710), drawn on the axis boundary with its real value. Hatched band = hours
+the government monitors didn't publish.*
 
-- **Day view:** hourly AQI and PM2.5 for your area and for **your city's worst monitor of the last
-  30 days** (picked automatically, re-picked monthly; "Worst in Delhi" in these screenshots). Values are printed on the points (labels move
-  so they don't overlap), and WAQI live readings appear as rings.
-- **Month view:** daily AQI (EPA method: AQI of the 24-hour mean), with full and incomplete days
-  marked.
-- **Sensible axis:** the axis is sized to *your* normal range (98th percentile of the last 90 days,
-  festival nights excluded, plus an allowance). On a festival night, at most 1–3 extreme readings sit
-  on the top edge with their values instead of squashing the whole chart.
+- **One PM2.5 chart, two scales.** The left axis is PM2.5 in µg/m³, evenly spaced. The right axis
+  shows the **US AQI at the same height**: read any point straight across. Its numbers are unevenly
+  spaced (50 sits at 9 µg/m³, 200 at 125, 500 at 325) because AQI rises at a different rate in each
+  category. The coloured bands are the AQI categories, named at the right edge.
+- **Day view:** hourly PM2.5 for your area and for **your city's worst monitor of the last 30 days**
+  (picked automatically, re-picked monthly; "Worst in Delhi" in these screenshots).
+- **Labels that stay readable:** points show the PM2.5 number. Each line's peak, lowest point and
+  latest hour also show the AQI, e.g. `360 (AQI 569)`. Hours when PM10 rather than PM2.5 sets the AQI
+  always show it (`, PM10`), because the right axis reflects PM2.5 only. Labels are coloured like
+  their line with a thin dark outline, sit directly above or below their point, and are placed by
+  importance, so a peak is never the one left out. Hover over any point for both numbers.
+- **Live readings for the latest hours:** the government feed runs 1–2 h behind, so hours it hasn't
+  published yet show as rings (WAQI's live readings turned back into PM2.5), each at the middle of
+  its hour. When the hour is published, the measured point replaces the ring.
+- **Weather strip:** under the chart, with its own time axis: wind speed with direction arrows and the
+  mixing-layer height (how deep the air can mix; below 300 m pollution is trapped), with temperature
+  and humidity on hover. From Open-Meteo (free, no key), saved hourly in `data/weather_YYYY-MM.csv`.
+- **Month view:** daily mean PM2.5 with the day's AQI (EPA method: AQI of the 24-hour mean) on the
+  right axis, full and incomplete days marked, and daily weather.
+- **Same scale every day:** the axis is *your* normal range (98th percentile of the last 90 days,
+  festival nights excluded, plus an allowance), so the same value is the same height on any day. On
+  an extreme day it rises only if more than about 10% of readings would sit above it; those few sit
+  on the top edge as ▲ with their real values instead of squashing the whole chart.
+- **Layers menu** for the extras: the raw satellite line, the spread of your monitors (lowest to
+  highest each hour), a rolling **24-hour average** (the figure CPCB and the news report), live
+  readings, the weather strip and point values.
+- **Short summary, details on demand:** at most three lines under the chart (each location's mean and
+  worst hour, the satellite and weather reading, any gaps). **ⓘ How to read** explains every line and
+  band and lists the full notes and sources.
+- **Save graph:** saves what's on screen as a PNG or a one-page PDF, with a one-line legend.
 - **Gaps are visible:** hours with no published data are hatched; hours not yet published are dotted.
 - **Daily image:** each completed day is saved as a PNG the next morning, with a notification.
 
@@ -168,14 +191,16 @@ top edge is an outlier drawn on the axis boundary with its real value (1710).*
 
 ### 5. An independent check: satellite-based model
 
-A dashed line on the PM2.5 chart shows **Copernicus CAMS** (via Open-Meteo, free). CAMS is an
+The PM2.5 chart can show **Copernicus CAMS** (via Open-Meteo, free). CAMS is an
 atmospheric model corrected with **NASA MODIS satellite aerosol data**, and its global system doesn't
 use ground monitors. ([CAMS method](https://acp.copernicus.org/preprints/acp-2020-467/acp-2020-467.pdf),
 [Open-Meteo API](https://open-meteo.com/en/docs/air-quality-api))
 
 - It's coarse (~45 km grid) and a model, so **use it for the trend, not the exact level**.
-- The app tracks how many times higher the monitors read than the model. **If the monitors
-  suddenly drop while the model rises, question the monitors.**
+- The chart shows it as a dotted line: **the model × its usual gap** to your monitors (their median
+  ratio over the previous 7 days). The raw model line is one click away in Layers. If your line follows the dotted one, weather or regional air explains the
+  change; if it breaks away, the cause is local, or a monitor is off. A line under the chart says
+  which, with the numbers (today's gap vs the usual one; within 0.6–1.6× counts as normal).
 - History goes back to August 2022, so year-to-year comparisons don't depend on which monitors
   happened to be running.
 
@@ -402,6 +427,7 @@ aqi-dashboard/
 ├── verify.py              # "How is this calculated?" + cross-checks
 ├── area.py                # live area reading: median / average / distance-weighted
 ├── cams.py                # satellite-based model (Copernicus CAMS via Open-Meteo)
+├── weather.py             # hourly wind, mixing-layer height, temperature, humidity (Open-Meteo)
 ├── surge.py               # cause explainer + city-wide snapshots
 ├── alerts.py              # spike alerts (area, live, city-wide)
 ├── phone.py               # ntfy updates, alerts, keyword commands

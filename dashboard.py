@@ -1680,6 +1680,11 @@ class DashboardWindow(QMainWindow):
             cams.update(self.config)
         except Exception as e:
             logging.getLogger("aqi").warning("satellite model fetch failed: %s", e)
+        try:                                     # hourly weather for the History weather strip, at most hourly
+            import weather
+            weather.update(self.config)
+        except Exception as e:
+            logging.getLogger("aqi").warning("weather fetch failed: %s", e)
         if getattr(self, "_alerts", None) is None:
             from alerts import AlertManager
             self._alerts = AlertManager(self.config)

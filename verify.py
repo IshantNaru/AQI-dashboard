@@ -5,12 +5,10 @@ Every number shown can be traced and recomputed by anyone:
   1. Source + time   — which feed, which monitors, which hour (or "live" time).
   2. Raw values      — each monitor's own reading, with a link to its public page.
   3. Arithmetic      — the US EPA 2024 formula with the actual numbers plugged in.
-  4. Cross-checks    — monitors reporting, live vs measured, and the satellite model (independent
-                       of the monitors) against its usual ratio to them.
+  4. Cross-checks    — monitors reporting, and live vs measured.
 The app can't certify a government instrument; what it can do is make every step reproducible
 and flag when sources stop agreeing.
 """
-import statistics
 from datetime import datetime, timedelta
 
 from aqi_math import PM25_BP, PM25_BP_OLD, pm25_to_aqi, waqi_to_pm25, category
@@ -51,34 +49,6 @@ def latest_home_row(store, now=None):
     return max(rows, key=lambda r: r["hour_start_utc"]) if rows else None
 
 
-def model_ratio(store, now=None, days=7):
-    """(latest model value, its hour, today's ratio monitors/model, typical ratio over `days`)."""
-    import cams
-    now = now or datetime.now().astimezone()
-    months = sorted({now.strftime("%Y-%m"), (now - timedelta(days=days)).strftime("%Y-%m")})
-    model = {}
-    for r in cams.read(store.dir, months):
-        try:
-            model[r["time_local"][:13]] = float(r["pm25_model"])
-        except (KeyError, ValueError):
-            pass
-    meas = {}
-    for m in months:
-        for r in store.read(store.path("readings", m)):
-            if r.get("target") == "home" and r.get("pm25_ugm3"):
-                meas[r["hour_start_local"][:13]] = float(r["pm25_ugm3"])
-    keys = sorted(k for k in meas if k in model and model[k] > 0)
-    if not model:
-        return None
-    last_k = max(model)
-    cut = (now - timedelta(days=days)).strftime("%Y-%m-%dT%H")
-    hist = [meas[k] / model[k] for k in keys if k >= cut]
-    today = [meas[k] / model[k] for k in keys if k[:10] == now.strftime("%Y-%m-%d")]
-    return {"value": model[last_k], "hour": last_k[11:13] + ":00", "date": last_k[:10],
-            "ratio_today": statistics.median(today) if today else None,
-            "ratio_typical": statistics.median(hist) if hist else None, "n": len(hist)}
-
-
 def checks(store, area, measured_row, cards=None, configured_monitors=5):
     """Short status list [(ok: bool|None, text)] for the badge and the dialog."""
     out = []
@@ -94,23 +64,6 @@ def checks(store, area, measured_row, cards=None, configured_monitors=5):
         d = abs(live["pm25"] - m["pm25"]) / max(m["pm25"], 1)
         out.append((d <= 0.30, f"Live estimate {live['pm25']:.0f} vs measured {m['pm25']:.0f} µg/m³ "
                     f"({d:.0%} apart; different times, and WAQI carries only some of the monitors)"))
-    try:
-        mr = model_ratio(store)
-    except Exception:
-        mr = None
-    if mr and mr.get("ratio_today") and mr.get("ratio_typical"):
-        dev = mr["ratio_today"] / mr["ratio_typical"]
-        ok = 0.6 <= dev <= 1.6
-        out.append((ok, f"Satellite model agrees with the monitors' usual pattern (today monitors = "
-                    f"{mr['ratio_today']:.1f}× model, usual {mr['ratio_typical']:.1f}×)" if ok else
-                    f"Monitors and satellite model diverge from their usual ratio (today {mr['ratio_today']:.1f}× vs "
-                    f"usual {mr['ratio_typical']:.1f}×) — a local source, or a monitor problem"))
-    elif mr is None:
-        out.append((None, "Satellite model: no data yet (fetched hourly while the app runs)"))
-    else:
-        out.append((None, f"Satellite model: latest {mr['value']:.0f} µg/m³ ({mr['date']} {mr['hour']}); no hours "
-                          "overlapping with today's measured data yet"
-                          + (f" — usually monitors read {mr['ratio_typical']:.1f}× the model" if mr.get('ratio_typical') else "")))
     return out
 
 

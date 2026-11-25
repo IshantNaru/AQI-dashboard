@@ -8,7 +8,7 @@
 ![PySide6](https://img.shields.io/badge/UI-PySide6%20%28Qt6%29-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-lightgrey?style=flat-square)
 ![Version](https://img.shields.io/badge/version-2.0-orange?style=flat-square)
-![Sources](https://img.shields.io/badge/sources-govt%20monitors%20%C2%B7%20WAQI%20%C2%B7%20satellite%20model-purple?style=flat-square)
+![Sources](https://img.shields.io/badge/sources-govt%20monitors%20%C2%B7%20WAQI%20%C2%B7%20weather-purple?style=flat-square)
 
 ![Dashboard](screenshots/dashboard.png)
 
@@ -59,8 +59,8 @@ PM2.5. ([WHO guidelines via IQAir](https://www.iqair.com/newsroom/2021-WHO-air-q
 ## What this app is, and what it isn't
 
 **It is a monitoring tool, not a certified instrument.** There's no sensor at your house. The app
-combines public data from government monitors near you, a second live feed, and an independent
-satellite-based model, and it is **open about how each number is made**:
+combines public data from government monitors near you, a second live feed and local weather, and
+it is **open about how each number is made**:
 
 - every number says **where it came from and when** (e.g. *"live 23:00"*, *"measured 21:00–22:00"*);
 - one click shows **each monitor's raw reading and the exact formula** with the numbers plugged in;
@@ -85,7 +85,6 @@ station's AQI plus a median across four websites. v2 is a recorder and analyst.
 | Time | "now" | **live (with time) and measured (with the hour)** shown separately, plus full history |
 | History | none | background recorder → monthly CSVs; **Day / Month graphs**; a saved image of every day |
 | Gaps | invisible | missing monitor hours **marked on the graph and logged** |
-| Independent check | none | **satellite-based model (Copernicus CAMS)**, unaffected by monitors going offline |
 | Why is it bad? | n/a | **cause explainer**: festival calendar, city-wide vs local, wind, mixing height, smoke vs dust, crop-fire season |
 | Alerts | none | spikes in your area or across your city → banner, sound, Windows notification, phone |
 | Phone | none | **ntfy push updates every 2 h**, and you can **ask questions** ("why is it so bad?", "AQI in Rohini", "graph") |
@@ -177,11 +176,11 @@ the government monitors didn't publish.*
   festival nights excluded, plus an allowance), so the same value is the same height on any day. On
   an extreme day it rises only if more than about 10% of readings would sit above it; those few sit
   on the top edge as ▲ with their real values instead of squashing the whole chart.
-- **Layers menu** for the extras: the raw satellite line, the spread of your monitors (lowest to
+- **Layers menu** for the extras: the spread of your monitors (lowest to
   highest each hour), a rolling **24-hour average** (the figure CPCB and the news report), live
   readings, the weather strip and point values.
 - **Short summary, details on demand:** at most three lines under the chart (each location's mean and
-  worst hour, the satellite and weather reading, any gaps). **ⓘ How to read** explains every line and
+  worst hour, the weather reading, any gaps). **ⓘ How to read** explains every line and
   band and lists the full notes and sources.
 - **Save graph:** saves what's on screen as a PNG or a one-page PDF, with a one-line legend.
 - **Gaps are visible:** hours with no published data are hatched; hours not yet published are dotted.
@@ -189,20 +188,22 @@ the government monitors didn't publish.*
 
 ![Month view](screenshots/v2/v2-history-month.png)
 
-### 5. An independent check: satellite-based model
+### 5. Why there's no satellite line (tested, then removed)
 
-The PM2.5 chart can show **Copernicus CAMS** (via Open-Meteo, free). CAMS is an
-atmospheric model corrected with **NASA MODIS satellite aerosol data**, and its global system doesn't
-use ground monitors. ([CAMS method](https://acp.copernicus.org/preprints/acp-2020-467/acp-2020-467.pdf),
-[Open-Meteo API](https://open-meteo.com/en/docs/air-quality-api))
+Up to v2.2 the PM2.5 chart showed **Copernicus CAMS**, a global model corrected with satellite aerosol
+data, as an independent check on the monitors. It was tested against seven weeks of this app's own
+records (Oct–Nov 2026, about 1,100 hours) and **removed in v2.3**, because it didn't earn its place:
 
-- It's coarse (~45 km grid) and a model, so **use it for the trend, not the exact level**.
-- The chart shows it as a dotted line: **the model × its usual gap** to your monitors (their median
-  ratio over the previous 7 days). The raw model line is one click away in Layers. If your line follows the dotted one, weather or regional air explains the
-  change; if it breaks away, the cause is local, or a monitor is off. A line under the chart says
-  which, with the numbers (today's gap vs the usual one; within 0.6–1.6× counts as normal).
-- History goes back to August 2022, so year-to-year comparisons don't depend on which monitors
-  happened to be running.
+- **Wrong daily timing:** the monitors peak overnight and in the morning; the model peaks in the
+  evening. Hour by hour the two correlate weakly (0.5 overall, near 0 on some days).
+- **No predictive value:** for the next 1–6 hours, the model's trend did no better than Delhi's usual
+  time-of-day pattern; for the next day in November, no better than "same as yesterday".
+- **A misleading verdict:** its "monitors below their usual gap" flag fired mainly on days the
+  model itself spiked, not when the monitors changed.
+
+The app still records the model in the background (`data/model_YYYY-MM.csv`) so the test can be
+repeated, but nothing on screen depends on it. A real independent check needs a ground
+measurement, not a 45 km model.
 
 ### 6. Why not take government monitors at face value?
 
@@ -223,8 +224,7 @@ measurement available. But it has documented gaps, usually at the worst moments:
   ([Tribune](https://www.tribuneindia.com/news/delhi/cpcb-denies-aqi-data-tampering-allegations))
 
 This app doesn't claim any of that is tampering. It's built so that **it doesn't matter**: the median
-resists one odd monitor, gaps are shown instead of hidden, and the satellite model keeps the trend
-visible if monitors go quiet.
+resists one odd monitor, and gaps are shown instead of hidden.
 
 ### 7. "Why is the air like this?"
 
@@ -295,7 +295,7 @@ token (tested with Xiaomi Mi Air Purifier 4 Lite via `python-miio`).*
 
 | Without internet | Needs internet |
 |---|---|
-| Starts and shows the last good reading (cached) | Live readings, recorder sync, satellite model |
+| Starts and shows the last good reading (cached) | Live readings, recorder sync, weather |
 | All History graphs and daily images (local CSVs) | Phone updates and replies |
 | Purifier logging (home Wi-Fi only) | Locality search, cause explainer's weather data |
 
@@ -314,7 +314,7 @@ model, and prints a same-date comparison: average, worst day, hours in the "Haza
 
 | | |
 |---|---|
-| ![How is this calculated](screenshots/v2/how-calculated.png) | **"How is this calculated?"**: each monitor's raw reading, the conversion and formula with numbers, source links, and cross-checks (monitors reporting, live vs measured, satellite model vs usual ratio) |
+| ![How is this calculated](screenshots/v2/how-calculated.png) | **"How is this calculated?"**: each monitor's raw reading, the conversion and formula with numbers, source links, and cross-checks (monitors reporting, live vs measured) |
 
 ---
 
@@ -345,7 +345,7 @@ notepad config.json         :: add your keys and location
 | `iqair_key` | optional | [iqair.com](https://www.iqair.com/us/commercial-air-quality-monitors/api) |
 | `firms_map_key` | optional: crop-fire counts in the cause explainer | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/area/) |
 
-The satellite model (Open-Meteo) and weather need no key.
+Weather (Open-Meteo) needs no key.
 
 ### Location
 
@@ -383,12 +383,11 @@ Set three things in `config.json` and the rest follows:
 | **Your area** | government monitors within `recorder.home_area.radius_km` (default 5 km) of your location | Raise the radius to 8–10 km in cities with fewer monitors. "Your area" needs at least 2 within `max_radius_km`. |
 | **City-wide comparison and alerts** | all monitors in a box about ±28 km around your location, labelled with `location.city` | Optional `"city_box": [lat1, lng1, lat2, lng2]` to match your city's outline exactly |
 | **"Worst in your city" line** | `recorder.tracked_station`. If you delete that block, it uses your location and city name | `name_filter` must match how monitor names spell the city, e.g. "Bengaluru", not "Bangalore" |
-| **Satellite model, weather, festivals** | your coordinates; Indian festival calendar plus your own `data/events.csv` | none |
+| **Weather, festivals** | your coordinates; Indian festival calendar plus your own `data/events.csv` | none |
 | **Crop-burning check** | only runs for the north Indian plains (lat 25–32.5°N, lng 73.5–84.5°E) | `"stubble_check": true/false` to force it on or off |
 
 Monitor coverage differs a lot between cities. Delhi has dozens of government monitors; many
-smaller cities have only a handful. With fewer monitors, "your area" covers a wider radius and the
-satellite model becomes more useful as a cross-check.
+smaller cities have only a handful. With fewer monitors, "your area" covers a wider radius.
 
 ---
 
@@ -397,11 +396,10 @@ satellite model becomes more useful as a cross-check.
 - **No sensor at your house:** "your area" is estimated from monitors 0.5–5 km away. A busy road
   outside your window can be worse.
 - **Shared bias is invisible:** if every monitor reads low together, no method that uses only those
-  monitors can tell. The satellite model is there to catch that kind of drift in the trend.
+  monitors can tell. Only an independent ground sensor could; the satellite model was tested for this
+  and couldn't (see section 5).
 - **The live feed carries only some monitors**, so live and measured can differ. The card shows both,
   and the cross-check flags gaps above 30%.
-- **The satellite model is coarse** (~45 km) and, in Delhi's winter, often reads well below the
-  ground monitors. Use it for direction, not level.
 - **Above AQI 500** the US scale is undefined; values are extended, not official.
 - **Purifier sensors** are low-cost laser sensors: fine for trends and comparisons, not reference-grade.
 
@@ -426,7 +424,7 @@ aqi-dashboard/
 ├── cards.py               # live vs measured values for the cards and phone
 ├── verify.py              # "How is this calculated?" + cross-checks
 ├── area.py                # live area reading: median / average / distance-weighted
-├── cams.py                # satellite-based model (Copernicus CAMS via Open-Meteo)
+├── cams.py                # satellite-based model (Copernicus CAMS), recorded only, not shown
 ├── weather.py             # hourly wind, mixing-layer height, temperature, humidity (Open-Meteo)
 ├── surge.py               # cause explainer + city-wide snapshots
 ├── alerts.py              # spike alerts (area, live, city-wide)
@@ -448,8 +446,8 @@ aqi-dashboard/
 **This app was built with AI (Claude by Anthropic) as the main implementation tool, in v1 and v2.**
 
 What I did: defined what the app had to answer from living with Delhi's air, made the
-design calls (median over nearest station, live vs measured kept apart, an independent satellite
-check, showing every calculation), tested every build on real days, caught what was wrong (mixed
+design calls (median over nearest station, live vs measured kept apart, testing an independent satellite
+check and dropping it when the data showed it didn't work, showing every calculation), tested every build on real days, caught what was wrong (mixed
 AQI scales, misleading cards, false door-opening alerts, unreadable graphs) and set the bar for what
 counted as correct. The Python was written by Claude under that direction.
 

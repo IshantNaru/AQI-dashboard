@@ -34,7 +34,6 @@ from aqi_math import live_row_aqi, pm25_to_aqi, aqi_to_pm25, waqi_to_pm25
 TARGET_COLORS = {"home": "#7aa2f7", "tracked": "#ff7a93"}
 INDOOR_COLORS = ["#3ecf8e", "#f7d154", "#c084fc", "#38bdf8"]
 OUTDOOR_COLOR = "#ef4444"
-MODEL_COLOR = "#c9b38a"          # satellite model (CAMS): sand-coloured dashed line
 WIND_COLOR = "#67e8f9"           # weather strip: wind speed line + direction arrows
 BLH_COLOR = "#94a3b8"            # weather strip: mixing-layer height (shaded)
 BG, CARD, GRID, TEXT, MUTED = "#0e0e16", "#1c1c28", "#2a2a3e", "#d8d8e8", "#8a8aa3"
@@ -421,12 +420,6 @@ class HistoryWindow(QWidget):
                              f"{'font-weight:700;' if bold else ''} }}")
             cb.toggled.connect(self.reload)
             return cb
-        self.model_cb = toggle("┄  Satellite model (CAMS)", MODEL_COLOR, False,
-                               "Copernicus CAMS: a model corrected with NASA satellite aerosol data, ~45 km grid, "
-                               "independent of the ground monitors. Use it for the trend, not the exact level.")
-        self.scaled_cb = toggle("┈  Satellite model × usual gap", MODEL_COLOR, True,
-                                "The model scaled by how much higher your monitors usually read than it. If your line "
-                                "follows this one, weather / regional air explains the change.")
         self.live_cb = toggle("○  Live readings (hours not yet published)", TEXT, True,
                               "WAQI's live readings for the latest hours, before the government feed publishes "
                               "them. Replaced by the measured point once the hour is published.")
@@ -447,7 +440,7 @@ class HistoryWindow(QWidget):
                                       "QToolButton::menu-indicator { image:none; }")
         menu = QMenu(self.layers_btn)
         menu.setStyleSheet("QMenu { background:#1c1c28; border:1px solid #3a3a52; padding:6px; }")
-        for cb in (self.model_cb, self.scaled_cb, self.live_cb, self.spread_cb, self.avg_cb, self.weather_cb,
+        for cb in (self.live_cb, self.spread_cb, self.avg_cb, self.weather_cb,
                    self.values_cb):
             wa = QWidgetAction(menu)
             wa.setDefaultWidget(cb)               # ticking keeps the menu open
@@ -474,7 +467,7 @@ class HistoryWindow(QWidget):
         self.method_lbl.setWordWrap(True)
         self.method_lbl.setStyleSheet(f"color:{TEXT}; font-size:12px;")
         root.addWidget(self.method_lbl)
-        self._details, self._model_brief, self._wx_brief = [], "", ""
+        self._details, self._wx_brief = [], ""
 
         # ── charts ──────────────────────────────────────────────────────────
         self.main_chart, self.wx_chart = self._new_chart(), self._new_chart()
@@ -537,10 +530,6 @@ class HistoryWindow(QWidget):
                 parts.append(f"<span style='color:{TARGET_COLORS['home']}'>▒ Spread of your monitors</span>")
             if self.mode == "day" and self.avg_cb.isChecked():
                 parts.append(f"<span style='color:{TEXT}'>╌ 24-h average</span>")
-            if self.model_cb.isChecked():
-                parts.append(f"<span style='color:{MODEL_COLOR}'>┄ Satellite model (CAMS)</span>")
-            if self.scaled_cb.isChecked():
-                parts.append(f"<span style='color:{MODEL_COLOR}'>┈ Model × usual gap</span>")
             parts.append(f"<span style='color:{MUTED}'>left axis PM2.5 µg/m³ · right axis US AQI · area method: "
                          f"{METHOD_NAMES.get(self.method, self.method)}</span>")
         return "&nbsp;&nbsp;&nbsp;".join(parts)
@@ -565,7 +554,7 @@ class HistoryWindow(QWidget):
                    f"{self.period_lbl.text()}</span><br>{self._legend_html()}", 10)
         notes = [doc(self.summary.text(), 9)] if self.summary.text().strip() else []
         notes.append(doc("<span style='color:#8a8aa3'>Source: OpenAQ hourly averages from government monitors · "
-                         "AQI: US EPA 2024 breakpoints · satellite model: Copernicus CAMS · weather: Open-Meteo</span>",
+                         "AQI: US EPA 2024 breakpoints · weather: Open-Meteo</span>",
                          8))
         height = int(pad + head.size().height() + 8 + sum(v.viewport().height() + 6 for v in views)
                      + sum(d.size().height() + 4 for d in notes) + pad)
@@ -647,7 +636,7 @@ class HistoryWindow(QWidget):
         lines = []
         if stats:
             lines.append("&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;".join(stats))
-        second = [x for x in (self._model_brief, self._wx_brief) if x]
+        second = [x for x in (self._wx_brief,) if x]
         if second:
             lines.append(f"<span style='color:{MUTED}'>" + "&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;".join(second) + "</span>")
         if status:
@@ -676,9 +665,6 @@ class HistoryWindow(QWidget):
             "○ Rings: live readings (WAQI) for the latest hours, before the government feed publishes them "
             "(it runs 1–2 h behind). Each ring sits at the middle of its hour, where the measured point will appear; "
             "once that hour is published, the ring is replaced by the point.",
-            f"<span style='color:{MODEL_COLOR}'>┄ Satellite model</span> (its own level) and "
-            f"<span style='color:{MODEL_COLOR}'>┈ model × usual gap</span> (where your monitors would be on a normal day "
-            "for this weather).",
             f"<span style='color:{WIND_COLOR}'>Weather strip</span>: wind speed (line; arrows show where it blows to) "
             "and mixing-layer height (grey area; the red zone below 300 m traps pollution).",
             f"Background shading: {bands}. The y-axis is your normal range, the same every day; ▲ = a reading above it, "
@@ -713,8 +699,6 @@ class HistoryWindow(QWidget):
             parts.append(f"<span style='color:{TARGET_COLORS['home']}'>▒ spread</span>")
         if self.mode == "day" and self.avg_cb.isChecked():
             parts.append(f"<span style='color:{TEXT}'>╌ 24-h avg</span>")
-        if self.model_cb.isChecked() or self.scaled_cb.isChecked():
-            parts.append(f"<span style='color:{MODEL_COLOR}'>┄ satellite model</span>")
         self._layers[0].set_header("&nbsp;&nbsp;".join(parts), 9)
 
     def _live_tick(self):
@@ -998,7 +982,7 @@ class HistoryWindow(QWidget):
         self._update_method_label()
         self._labelled = {}
         self._texts = {}                        # (series id, x) → label text
-        self._model_brief, self._wx_brief = "", ""
+        self._wx_brief = ""
         self._rings_drawn = False
         self._no_rank = set()                   # series not counted when choosing the axis (indoor overlay)
         self._fresh_charts()
@@ -1006,8 +990,8 @@ class HistoryWindow(QWidget):
         purifier = self.mode == "indoor"         # Purifier view: one big chart, outdoor-only controls hidden
         self.wx_view.setVisible(not purifier and self.weather_cb.isChecked())
         if not self.phone:
-            for w in [*self.checks.values(), self.live_cb, self.model_cb, self.mlab, *self.method_btns.values(),
-                      self.spread_cb, self.avg_cb, self.scaled_cb, self.weather_cb, self.info_btn]:
+            for w in [*self.checks.values(), self.live_cb, self.mlab, *self.method_btns.values(),
+                      self.spread_cb, self.avg_cb, self.weather_cb, self.info_btn]:
                 w.setVisible(not purifier)
             self.method_lbl.setVisible(purifier)
         now = datetime.now()
@@ -1066,31 +1050,6 @@ class HistoryWindow(QWidget):
             area.hovered.connect(lambda p, on, t=tips: on and self._tip(t, p))
             out.append(area)
         return out
-
-    def _usual_ratio(self, end, days, col):
-        """Median of (your area ÷ satellite model) over the `days` before `end`, hour by hour."""
-        import cams
-        frm = end - timedelta(days=days)
-        months = sorted({(frm + timedelta(days=i)).strftime("%Y-%m") for i in range(days + 1)})
-        model = {}
-        for r in cams.read(self.store.dir, months):
-            try:
-                model[r["time_local"][:13]] = float(r["pm25_model"])
-            except (KeyError, ValueError):
-                pass
-        ratios = []
-        for m in months:
-            for r in self._rows("readings", m):
-                if r["target"] != "home":
-                    continue
-                t = parse_dt(r.get("hour_start_local"))
-                v = _num(r.get(col))
-                if not t or v is None or not (frm <= t < end):
-                    continue
-                mv = model.get(t.strftime("%Y-%m-%dT%H"))
-                if mv and mv > 0:
-                    ratios.append(v / mv)
-        return (statistics.median(ratios), len(ratios)) if len(ratios) >= 24 else (None, len(ratios))
 
     def _avg24_series(self, key, rows_all, start, end, col_name, color):
         """Rolling 24-hour mean of PM2.5 (what CPCB and the news report), only where ≥ 18 of the
@@ -1404,9 +1363,6 @@ class HistoryWindow(QWidget):
                 notes.append(f"<span style='color:{col}; font-weight:700'>{label}</span>: no data for this day yet")
                 stats.append(f"<span style='color:{col}'><b>{_brief_name(label)}</b></span> no data yet")
 
-        if self.model_cb.isChecked() or self.scaled_cb.isChecked():
-            notes += self._model_series(plots, start, end, hourly)
-
         x_lo, x_hi = _ms(start), _ms(end)
         nt = 7 if self.phone else 13                        # every 4 h on a phone, 2 h on the desktop
         xp = self._x_axis(x_lo, x_hi, "HH:mm", nt, None)
@@ -1579,9 +1535,6 @@ class HistoryWindow(QWidget):
                     prev_dd = dd
                 if run:
                     spread_runs.append(run)
-
-        if self.model_cb.isChecked() or self.scaled_cb.isChecked():
-            notes += self._model_series(plots, first, nxt, None, daily_rows=daily)
 
         x_lo = _ms(first.replace(hour=12))
         x_hi = _ms((first + timedelta(days=ndays - 1, hours=2)).replace(hour=12))
@@ -1766,113 +1719,6 @@ class HistoryWindow(QWidget):
                              "isn't set up under \"indoor\" in config.json).")
         self.source.setText("Indoor: purifier's own sensor via local Wi-Fi (data/indoor_YYYY-MM.csv) · Outdoor: "
                             "OpenAQ hourly median of your area's monitors (arrives 1–2 h late).")
-
-    def _model_series(self, plots, start, end, hourly, daily_rows=None):
-        """Satellite model (CAMS) lines and a plain-language reading of how the monitors compare.
-        ┄ raw model PM2.5 (its own level — usually far below Delhi's monitors in winter)
-        ┈ model × its usual gap to your monitors (median ratio over the 7 days before this day, or over
-          this month in Month view): if your line follows this one, the change is weather/regional;
-          if it breaks away, the cause is local — or a monitor is off."""
-        import cams
-        months = sorted({start.strftime("%Y-%m"), (end - timedelta(seconds=1)).strftime("%Y-%m")})
-        rows = []
-        for r in cams.read(self.store.dir, months):
-            try:
-                t = datetime.fromisoformat(r["time_local"]).astimezone()
-                v = float(r["pm25_model"])
-            except (KeyError, ValueError):
-                continue
-            if start <= t < end:
-                rows.append((t, v, r.get("aod")))
-        if not rows:
-            return [f"<span style='color:{MODEL_COLOR}'>┄ Satellite model: no data for this period yet "
-                    f"(fetched hourly once the app is running; history from Aug 2022).</span>"]
-        c25 = self._cols("home")[0]
-        if daily_rows is None:                                   # Day view: hourly
-            pts = [(_ms(t), v, t, aod) for t, v, aod in sorted(rows)]
-            meas = {parse_dt(r["hour_start_local"]).replace(minute=0, second=0, microsecond=0): _num(r.get(c25))
-                    for r in hourly if r["target"] == "home" and _num(r.get(c25)) is not None
-                    and parse_dt(r["hour_start_local"])}
-            pairs = [(meas[t.replace(minute=0, second=0, microsecond=0)], v) for t, v, _ in rows
-                     if t.replace(minute=0, second=0, microsecond=0) in meas]
-            unit = "hours"
-            usual, n_usual = self._usual_ratio(start, 7, c25)
-            usual_txt = "the 7 days before"
-        else:                                                    # Month view: daily means
-            by = {}
-            for t, v, _ in rows:
-                by.setdefault(t.date(), []).append(v)
-            pts = [(_ms(datetime.combine(d, datetime.min.time()).astimezone().replace(hour=12)), statistics.mean(vs),
-                    d, None) for d, vs in sorted(by.items())]
-            meas = {r["date"]: _num(r.get("pm25_mean_ugm3")) for r in daily_rows
-                    if r["target"] == "home" and _num(r.get("pm25_mean_ugm3")) is not None}
-            pairs = [(meas[d.isoformat()], statistics.mean(vs)) for d, vs in by.items() if d.isoformat() in meas]
-            unit = "days"
-            usual, n_usual = self._usual_ratio(min(end, datetime.now().astimezone()), 30, c25)
-            usual_txt = "the last 30 days"
-        tips = {}
-        if self.model_cb.isChecked():
-            line = QLineSeries()
-            pen = QPen(QColor(MODEL_COLOR)); pen.setWidthF(2.0 * self.pen_scale); pen.setStyle(Qt.DashLine)
-            line.setPen(pen)
-            line.hovered.connect(lambda p, on: on and self._tip(tips, p))
-            self._no_rank.add(id(line))
-            for x, v, t, aod in pts:
-                line.append(x, v)
-            plots.append(("pm", line))
-        if self.scaled_cb.isChecked() and usual:
-            sl = QLineSeries()
-            pen = QPen(QColor(MODEL_COLOR).lighter(135)); pen.setWidthF(1.8 * self.pen_scale); pen.setStyle(Qt.DotLine)
-            sl.setPen(pen)
-            sl.hovered.connect(lambda p, on: on and self._tip(tips, p))
-            self._no_rank.add(id(sl))
-            for x, v, t, aod in pts:
-                sl.append(x, v * usual)
-            plots.append(("pm", sl))
-        for x, v, t, aod in pts:
-            when = t.strftime("%H:%M") if daily_rows is None else t.strftime("%a %d %b") + " (daily mean)"
-            tips[x] = (f"Satellite model (CAMS) {when}<br><b>PM2.5 {v:.0f} µg/m³</b>"
-                       + (f" · aerosol optical depth {float(aod):.2f}" if _num(aod) is not None else "")
-                       + (f"<br>× usual gap {usual:.1f} = <b>{v * usual:.0f}</b> — where your monitors would be "
-                          f"if today were a normal day for this weather" if usual else "")
-                       + "<br><span style='color:#8a8aa3'>~45 km grid, computed from weather and satellite aerosol "
-                         "data, independent of the ground monitors</span>")
-        mv = statistics.mean(v for _, v, _, _ in pts)
-        out = [f"<span style='color:{MODEL_COLOR}'>┄ Satellite model (CAMS, ~45 km grid): mean PM2.5 {mv:.0f} µg/m³"]
-        if pairs and usual:
-            today = statistics.median(a / b for a, b in pairs if b > 0)
-            dev = today / usual
-            if 0.6 <= dev <= 1.6:
-                verdict = ("<b>your monitors follow the model</b> — the ups and downs are weather or regional "
-                           "(smoke arriving, wind dropping), not something on your street")
-            elif dev > 1.6:
-                verdict = ("<b>your monitors are well above their usual gap</b> — a local source the 45 km model "
-                           "can't see (burning, traffic, a fire), or a monitor reading high")
-            else:
-                verdict = ("<b>your monitors are well below their usual gap</b> — local air cleaner than the region, "
-                           "or a monitor reading low (e.g. water sprinkled around it)")
-            short = ("they follow it — weather / regional" if 0.6 <= dev <= 1.6 else
-                     "above usual — local source, or a monitor reading high" if dev > 1.6 else
-                     "below usual — cleaner locally, or a monitor reading low")
-            self._model_brief = (f"<span style='color:{MODEL_COLOR}'>Satellite check:</span> monitors "
-                                 f"{today:.1f}× the model (usual {usual:.1f}×) → {short}")
-            out[0] += (f" · over these {len(pairs)} {unit} your monitors read <b>{today:.1f}×</b> the model; "
-                       f"their usual gap ({usual_txt}) is <b>{usual:.1f}×</b>, so today's gap is {dev:.1f}× the usual "
-                       f"(within 0.6–1.6× counts as normal) → {verdict}.")
-            out.append(f"<span style='color:#8a8aa3'>┈ Dotted = model × {usual:.1f}. The model averages a ~45 km "
-                       "square and misses street-level sources and the shallow winter inversion, so it reads lower "
-                       "than city monitors; its SHAPE is the useful part. If your line tracks the dotted one, the "
-                       "model explains the change.</span>")
-        elif pairs:
-            g = statistics.mean(a for a, _ in pairs)
-            mm = statistics.mean(b for _, b in pairs)
-            if mm:
-                self._model_brief = (f"<span style='color:{MODEL_COLOR}'>Satellite check:</span> monitors "
-                                     f"{g / mm:.1f}× the model")
-            out[0] += (f" · over the same {len(pairs)} {unit} your area measured {g:.0f} → monitors read "
-                       f"{g / mm:.1f}× the model (not enough history yet to know their usual gap)" if mm else "")
-        out[0] += "</span>" if out[0].endswith(".") else ".</span>"
-        return out
 
     def _indoor_rows(self, start, end):
         import csv as _csv
